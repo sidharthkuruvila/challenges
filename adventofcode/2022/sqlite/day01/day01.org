@@ -1,0 +1,65 @@
+
+
+* Construct the table data
+
+
+#+begin_src awk :in-file ../../input/day01/input.txt :results value file :file calories.csv
+  BEGIN { elf_id = 1 }
+  $1 != "" { print elf_id","$1 }
+  $1 == "" { elf_id++ }
+#+end_src
+
+#+RESULTS:
+[[file:calories.csv]]
+
+
+* Load the table into sqlite
+
+#+begin_src sqlite :db ./day01.db
+  drop table if exists calories;	
+  create table calories(elf int, calories int);
+  .mode csv calories
+  .import calories.csv calories
+#+end_src
+
+#+RESULTS:
+
+* Create some intermediate data
+
+~total_calories_per_elf~ contains the total calories carried by each elf in decending order of calories.
+
+#+begin_src sqlite :db ./day01.db 
+  drop view if exists total_calories_per_elf;
+  create view total_calories_per_elf(elf, calories) as
+         select elf, sum(calories) as calories  from calories group by elf order by calories desc;
+#+end_src
+
+#+RESULTS:
+
+
+* Part 1
+
+Find a single elf that  is carrying the most calleries
+
+#+begin_src sqlite :db ./day01.db :colnames yes
+  select calories from total_calories_per_elf limit 1
+#+end_src
+
+#+RESULTS:
+| calories |
+|----------|
+|    68787 |
+
+* Calculate the top three 
+
+#+begin_src sqlite :db ./day01.db :colnames yes
+  with top3_elves as	
+  (select sum(calories) as calories  from calories group by elf order by calories desc limit 3)
+  select sum(calories) from top3_elves
+#+end_src
+
+#+RESULTS:
+| sum(calories) |
+|---------------|
+|        198041 |
+
