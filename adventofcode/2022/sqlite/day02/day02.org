@@ -69,6 +69,8 @@ Given the possible moves each player can make it is possible to enumerate all po
 
 * Load the input data into a table
 
+Convert input into a csv file
+
 #+begin_src awk :in-file ../../input/day02/input.txt :results value file :file games.csv
   {print $1","$2}
 #+end_src
@@ -77,7 +79,7 @@ Given the possible moves each player can make it is possible to enumerate all po
 [[file:games.csv]]
 
 
-* Load the input into sqlite
+Load the csv file into sqlite
 
 #+begin_src sqlite :db ./day02.db
   drop table if exists games;	
@@ -104,6 +106,8 @@ Given the possible moves each player can make it is possible to enumerate all po
 | C | X |
 | A | X |
 | C | X |
+
+* Set up the opponent moves table
 
 The oposing elves' moves are labeled A, B, C. They need to be mapped to rock, paper, scissors.
 #+begin_src sqlite :db ./day02.db
@@ -199,3 +203,72 @@ The final score can be calculated by summing the results
 | result |
 |--------|
 |  12156 |
+
+* Part 2
+
+For part two the second column, containing X, Y, Z need to be mapped to the result -1, 0, 1.
+
+#+begin_src sqlite :db ./day02.db
+  drop table if exists player_results;
+  create table player_results as
+  with player_results(player_result, result) as (values ('X', -1), ('Y', 0), ('Z', 1))
+  select *
+  from player_results
+#+end_src
+
+#+RESULTS:
+
+#+begin_src sqlite :db ./day02.db :colnames yes :exports both
+  select * from player_results
+#+end_src
+
+#+RESULTS:
+| player_result | result |
+|---------------+--------|
+| X             |     -1 |
+| Y             |      0 |
+| Z             |      1 |
+
+Find the results for each game played
+
+#+begin_src sqlite :db ./day02.db
+  drop table if exists part_2_played_games_results;
+  create table part_2_played_games_results as
+  select player_result as player, opponent_move as opponent, score
+  from all_game_results
+           join player_results using (result)
+           join opponent_moves on b_id = opponent_moves.id
+           join games on elf = opponent_moves.opponent_move and games.move = player_results.player_result
+#+end_src
+
+#+RESULTS:
+
+#+begin_src sqlite :db ./day02.db :colnames yes :exports both
+  select * from part_2_played_games_results limit 10
+#+end_src
+
+#+RESULTS:
+| player | opponent | score |
+|--------+----------+-------|
+| Z      | C        |     7 |
+| Z      | C        |     7 |
+| Z      | C        |     7 |
+| Z      | C        |     7 |
+| Z      | C        |     7 |
+| Z      | C        |     7 |
+| Z      | C        |     7 |
+| Z      | C        |     7 |
+| Z      | C        |     7 |
+| Z      | C        |     7 |
+
+
+The final score can be calculated by summing the results
+
+#+begin_src sqlite :db ./day02.db :colnames yes :exports both
+  select sum(score) as result from part_2_played_games_results
+#+end_src
+
+#+RESULTS:
+| result |
+|--------|
+|  10835 |
