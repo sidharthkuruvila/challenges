@@ -1,0 +1,201 @@
+
+
+* Moves
+
+There are three possible moves a player can make rock, paper or scissors
+
+#+begin_src sqlite :db ./day02.db
+  drop table if exists moves;
+  create table moves as
+  with moves_cte(id, move) as (values (1, 'rock'), (2, 'paper'), (3, 'scissors'))
+  select *
+  from moves_cte;
+#+end_src
+
+#+RESULTS:
+
+#+begin_src sqlite :db ./day02.db :exports both
+  select rowid, move from moves;
+#+end_src
+
+#+RESULTS:
+| 1 | rock     |
+| 2 | paper    |
+| 3 | scissors |
+
+Given the possible moves each player can make it is possible to enumerate all possible game results.
+
+#+begin_src sqlite :db ./day02.db
+  drop table if exists all_game_results;
+  create table all_game_results as
+  with all_games as (select a.id as a_id, b.id as b_id, a.id - b.id as diff
+                     from moves as a
+                              join moves as b),
+       results(result, label) as (values (1, 'Player wins'), (0, 'Draw'), (-1, 'Opponent wins')),
+       all_game_results(a_id, b_id, result) as (select a_id,
+                                                       b_id,
+                                                       case
+                                                           when abs(diff) < 2 then diff
+                                                           else diff / 2 * -1 end as res
+                                                from all_games)
+  select *, a_id + (result + 1) * 3 as score
+  from all_game_results
+           join results using (result)
+#+end_src
+
+#+RESULTS:
+
+#+begin_src sqlite :db ./day02.db :colnames yes :exports both
+  select a.move as player, b.move as opponent, label, score
+  from all_game_results
+           join moves as a on a.id = all_game_results.a_id
+           join moves as b on b.id = all_game_results.b_id
+           join scoring using (a_id, b_id)
+#+end_src
+
+#+RESULTS:
+| player   | opponent | label         | score |
+|----------+----------+---------------+-------|
+| rock     | scissors | Player wins   |     7 |
+| paper    | rock     | Player wins   |     8 |
+| scissors | paper    | Player wins   |     9 |
+| rock     | rock     | Draw          |     4 |
+| paper    | paper    | Draw          |     5 |
+| scissors | scissors | Draw          |     6 |
+| rock     | paper    | Opponent wins |     1 |
+| paper    | scissors | Opponent wins |     2 |
+| scissors | rock     | Opponent wins |     3 |
+
+
+* Load the input data into a table
+
+#+begin_src awk :in-file ../../input/day02/input.txt :results value file :file games.csv
+  {print $1","$2}
+#+end_src
+
+#+RESULTS:
+[[file:games.csv]]
+
+
+* Load the input into sqlite
+
+#+begin_src sqlite :db ./day02.db
+  drop table if exists games;	
+  create table games(elf string, move string);
+  .mode csv games
+  .import games.csv games
+#+end_src
+
+#+RESULTS:
+
+
+#+begin_src sqlite :db ./day02.db :exports both
+  select * from games limit 10
+#+end_src
+
+#+RESULTS:
+| C | Z |
+| C | Z |
+| A | Y |
+| A | X |
+| C | Z |
+| C | Z |
+| A | X |
+| C | X |
+| A | X |
+| C | X |
+
+The oposing elves' moves are labeled A, B, C. They need to be mapped to rock, paper, scissors.
+#+begin_src sqlite :db ./day02.db
+  drop table if exists opponent_moves;
+  create table opponent_moves as
+  with opponent_moves(opponent_move, move) as (values ('A', 'rock'), ('B', 'paper'), ('C', 'scissors'))
+  select *
+  from opponent_moves
+           join moves using (move)
+#+end_src
+
+#+RESULTS:
+
+#+begin_src sqlite :db ./day02.db :colnames yes :exports both
+  select * from opponent_moves
+#+end_src
+
+#+RESULTS:
+| opponent_move | move     | id |
+|---------------+----------+----|
+| A             | rock     |  1 |
+| B             | paper    |  2 |
+| C             | scissors |  3 |
+
+
+* Part 1
+
+For part one the second column, containing X, Y, Z need to be mapped to rock, paper, scissors.
+
+#+begin_src sqlite :db ./day02.db
+  drop table if exists player_moves;
+  create table player_moves as
+  with player_moves(player_move, move) as (values ('X', 'rock'), ('Y', 'paper'), ('Z', 'scissors'))
+  select *
+  from player_moves
+           join moves using (move)
+#+end_src
+
+#+RESULTS:
+
+#+begin_src sqlite :db ./day02.db :colnames yes :exports both
+  select * from player_moves
+#+end_src
+
+#+RESULTS:
+| player_move | move     | id |
+|-------------+----------+----|
+| X           | rock     |  1 |
+| Y           | paper    |  2 |
+| Z           | scissors |  3 |
+
+
+Find the results for each game played
+
+#+begin_src sqlite :db ./day02.db
+  drop table if exists part_1_played_games_results;
+  create table part_1_played_games_results as
+  select player_move as player, opponent_move as opponent, score
+  from all_game_results
+           join player_moves on a_id = player_moves.id
+           join opponent_moves on b_id = opponent_moves.id
+           join games on elf = opponent_moves.opponent_move and games.move = player_moves.player_move
+#+end_src
+
+#+RESULTS:
+
+#+begin_src sqlite :db ./day02.db :colnames yes :exports both
+  select * from part_1_played_games_results limit 10
+#+end_src
+
+#+RESULTS:
+| player | opponent | score |
+|--------+----------+-------|
+| X      | C        |     7 |
+| X      | C        |     7 |
+| X      | C        |     7 |
+| X      | C        |     7 |
+| X      | C        |     7 |
+| X      | C        |     7 |
+| X      | C        |     7 |
+| X      | C        |     7 |
+| X      | C        |     7 |
+| X      | C        |     7 |
+
+
+The final score can be calculated by summing the results
+
+#+begin_src sqlite :db ./day02.db :colnames yes :exports both
+  select sum(score) as result from part_1_played_games_results
+#+end_src
+
+#+RESULTS:
+| result |
+|--------|
+|  12156 |
