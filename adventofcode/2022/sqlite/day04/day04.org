@@ -1,0 +1,75 @@
+* Load input into sqlite
+
+Convert input into a csv file
+
+#+begin_src awk :in-file ../../input/day04/input.txt :results value file :file ranges.csv
+   BEGIN {
+       pair_id = 1
+   }
+
+  {
+     split($0, parts, ",")
+     split(parts[1], range1, "-")
+     split(parts[2], range2, "-")
+     printf("%d,%s,%s,%s,%s\n", pair_id, range1[1], range1[2], range2[1], range2[2])  
+     pair_id++
+   }
+#+end_src
+
+#+RESULTS:
+[[file:ranges.csv]]
+
+Load csv file into a table
+
+#+begin_src sqlite :db ./day04.db
+  drop table if exists ranges;	
+  create table ranges(id, start_a int, end_a int, start_b int, end_b int);
+  .mode csv ranges
+  .import ranges.csv ranges
+#+end_src
+
+#+RESULTS:
+
+#+begin_src sqlite :db ./day04.db :colnames yes :exports both
+  select * from ranges limit 10
+#+end_src
+
+#+RESULTS:
+| id | start_a | end_a | start_b | end_b |
+|----+---------+-------+---------+-------|
+|  1 |      12 |    80 |      12 |    81 |
+|  2 |      13 |    94 |      14 |    93 |
+|  3 |       9 |     9 |      10 |    61 |
+|  4 |       8 |     9 |       9 |    93 |
+|  5 |      36 |    63 |      55 |    63 |
+|  6 |      45 |    90 |      67 |    81 |
+|  7 |      32 |    61 |      13 |    80 |
+|  8 |      33 |    65 |      34 |    34 |
+|  9 |       4 |    95 |       5 |    95 |
+| 10 |       1 |    86 |       7 |    52 |
+
+* Part 1
+
+Filter cases where one range is inside another
+
+#+begin_src sqlite :db ./day04.db :colnames yes :exports both
+  select count(*) from ranges where (start_a <= start_b and end_b <= end_a) or (start_b <= start_a and end_a <= end_b)
+#+end_src
+
+#+RESULTS:
+| count(*) |
+|----------|
+|      602 |
+
+* Part 2
+
+Filter cases where range overlap by checking where the start of one of the ranges is contained in the other range.
+
+#+begin_src sqlite :db ./day04.db :colnames yes :exports both
+  select count(*) from ranges where (start_a <= start_b and start_b <= end_a) or (start_b <= start_a and start_a <= end_b)
+#+end_src
+
+#+RESULTS:
+| count(*) |
+|----------|
+|      891 |
