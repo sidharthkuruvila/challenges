@@ -78,6 +78,17 @@ Load csv file into a table
 | 256 |
 | 512 |
 
+Count the number of bits in the number 6749
+
+#+begin_src sqlite :db ./day06.db :colnames yes :exports both
+          select count(*) as Count from (select 6749 as n) join single_bits where b & n != 0
+#+end_src
+
+#+RESULTS:
+| Count |
+|-------|
+|     8 |
+
 * Part 1
 
 The algorithm
