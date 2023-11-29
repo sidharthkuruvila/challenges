@@ -1,0 +1,271 @@
+* Load the input data into a table
+
+Convert input into a csv files
+
++ crates.csv the position of each crate represented as the column, the depth of the crate within the stack and the name of the crate.
++ moves.csv the list of moves to make
+
+  #+begin_src awk :in-file ../../input/day05/input.txt 
+    BEGIN {
+        current_section = "start_crates"
+        move_id = 1
+        printf "" > "crates.csv"
+        printf "" > "moves.csv"
+    }
+
+    current_section == "start_crates" {
+        column_count = length($0) / 4
+        current_section = "crates"
+        for(i = 1; i <= column_count; i++){
+             depths[i] = 0
+        }
+    }
+
+    current_section == "crates" && $0 ~/[[]/ {
+        column_count = length($0) / 4
+          for(i = 0; i <= column_count; i++) {
+              crate = substr($0, i*4 + 2, 1)
+              if(crate != " ") {
+                 printf "%d,%d,%s\n", i, depths[i],crate >> "crates.csv"
+                 depths[i]++
+              }
+          }
+          next
+    }
+
+     current_section == "crates" && $0 ~/1/ {
+          current_section = "empty_line"
+          next
+     }
+     current_section == "empty_line" {
+        current_section = "moves"
+       next
+    }
+
+    current_section == "moves" {
+        print move_id","$2","$4-1","$6-1 >> "moves.csv"
+        move_id++
+    }
+  #+end_src
+
+  #+RESULTS:
+
+Create a crates table
+
+#+begin_src sqlite :db ./day05.db
+  drop table if exists crates;	
+  create table crates(column int, depth int, crate string);
+  .mode csv crates
+  .import crates.csv crates
+#+end_src
+
+#+RESULTS:
+
+#+begin_src sqlite :db ./day05.db :colnames yes :exports both
+  select * from crates limit 10
+#+end_src
+
+
+#+RESULTS:
+| column | depth | crate |
+|--------+-------+-------|
+|      2 |     0 | H     |
+|      5 |     0 | S     |
+|      8 |     0 | D     |
+|      1 |     0 | S     |
+|      2 |     1 | C     |
+|      5 |     1 | C     |
+|      7 |     0 | Q     |
+|      8 |     1 | L     |
+|      1 |     1 | C     |
+|      2 |     2 | R     |
+
+#+begin_src sqlite :db ./day05.db
+  drop table if exists moves;	
+  create table moves(id int, count int, from_column int, to_column int);
+  .mode csv moves
+  .import moves.csv moves
+#+end_src
+
+#+RESULTS:
+
+#+begin_src sqlite :db ./day05.db :colnames yes :exports both
+  select * from moves limit 10
+#+end_src
+
+#+RESULTS:
+| id | count | from_column | to_column |
+|----+-------+-------------+-----------|
+|  1 |     2 |           6 |         1 |
+|  2 |     1 |           3 |         7 |
+|  3 |     2 |           0 |         8 |
+|  4 |     4 |           5 |         4 |
+|  5 |     1 |           6 |         5 |
+|  6 |     2 |           0 |         3 |
+|  7 |     7 |           7 |         8 |
+|  8 |     7 |           3 |         4 |
+|  9 |     4 |           1 |         3 |
+| 10 |     1 |           4 |         8 |
+
+
+The goal is to indentify which crates will end up on the top of each column. One way to do this would be to simulate the running of the crane and see where the crates are at the end of all the moves.
+
+An alternative approach would be to focus on the positions of the top most crates. Applyting the moves backwards and simplty tracking the depth of each crate and the column it is on as the moves are applied.
+
+#+begin_src sqlite :db ./day05.db
+  drop table if exists final_crates;
+  create table final_crates as
+  with columns as (select distinct column from crates)
+  select column, 0 as depth from columns
+#+end_src
+
+#+RESULTS:
+
+#+begin_src sqlite :db ./day05.db :colnames yes :exports both
+  select * from final_crates limit 10
+#+end_src
+
+#+RESULTS:
+| column | depth |
+|--------+-------|
+|      2 |     0 |
+|      5 |     0 |
+|      8 |     0 |
+|      1 |     0 |
+|      7 |     0 |
+|      3 |     0 |
+|      4 |     0 |
+|      0 |     0 |
+|      6 |     0 |
+
+The moves need to be applied sequentially. This code devolves into procedural code and looks pretty much like it would be implemented in any other programming language.
+
+There are a few cases that need to be handled
+
+1. The move is from some column to the column the crate is on. There are two sub cases that need to be handlked
+   a. The number of items moved is greater than the depth of the crate and the crate would have moved from the from column
+   b. The number of items moves is less than the depth of the crate and the depth of the crate would have been lower before the move
+2. The move is from the column the crate is on to some other column. The depth of the crate would have been greater, by the number of crates moved before the move.
+3. The move is between two columns that crate is not on either. The depth of the crate and the column it was on would stay the same.
+
+
+Part 1 and 2 vary in how the crane picks up items and places them on the next column. Part 1 reverses the order of items while Part 2 doesn't
+
+* Part 1
+
+#+begin_src sqlite :db ./day05.db :colnames yes :exports both
+  drop table if exists all_moves_part1;
+  create table all_moves_part1 as
+  with recursive
+       last_move(move_id) as (select max(id) from moves),
+       initial(final_column, move_id, crate_column, crate_depth) as (
+          select column, move_id, column as crate_column, depth as crate_depth from final_crates join last_move
+       ),
+       apply_moves(final_column, move_id, crate_column, crate_depth) as (
+       -- Initial
+       select * from initial
+       union all
+       -- Case 1 a
+       select final_column, move_id - 1, moves.from_column, count - crate_depth - 1
+       from apply_moves
+       join moves on moves.id = move_id
+       where move_id > 0 and to_column = crate_column and count > crate_depth
+       union all
+       -- Case 1 b
+       select final_column, move_id - 1,  crate_column, crate_depth - count
+       from apply_moves
+       join moves on moves.id = move_id
+       where move_id > 0 and to_column = crate_column and count <= crate_depth
+       union all
+       -- Case 2
+       select final_column, move_id - 1,  crate_column, crate_depth + count
+       from apply_moves
+       join moves on moves.id = move_id
+       where move_id > 0 and from_column = crate_column
+       union all
+       -- Case 3
+       select final_column, move_id - 1,  crate_column, crate_depth
+       from apply_moves
+       join moves on moves.id = move_id
+       where move_id > 0 and from_column != crate_column and to_column != crate_column
+       )
+       select * from apply_moves
+
+#+end_src
+
+#+RESULTS:
+
+#+begin_src sqlite :db ./day05.db :colnames yes :exports both
+  with
+  result_crates as
+  (select crate  from all_moves_part1 
+  join crates on crate_column = crates.column and crate_depth = crates.depth
+  where move_id = 0
+  order by final_column)
+  select group_concat(crate, '') as Result from result_crates
+#+end_src
+
+#+RESULTS:
+| Result    |
+|-----------|
+| RFFFWBPNS |
+
+* Part 2
+
+#+begin_src sqlite :db ./day05.db :colnames yes :exports both
+  drop table if exists all_moves_part2;
+  create table all_moves_part2 as
+  with recursive
+       last_move(move_id) as (select max(id) from moves),
+       initial(final_column, move_id, crate_column, crate_depth) as (
+          select column, move_id, column as crate_column, depth as crate_depth from final_crates join last_move
+       ),
+       apply_moves(final_column, move_id, crate_column, crate_depth) as (
+       -- Initial
+       select * from initial
+       union all
+       -- Case 1 a
+       select final_column, move_id - 1, moves.from_column, crate_depth
+       from apply_moves
+       join moves on moves.id = move_id
+       where move_id > 0 and to_column = crate_column and count > crate_depth
+       union all
+       -- Case 1 b
+       select final_column, move_id - 1,  crate_column, crate_depth - count
+       from apply_moves
+       join moves on moves.id = move_id
+       where move_id > 0 and to_column = crate_column and count <= crate_depth
+       union all
+       -- Case 2
+       select final_column, move_id - 1,  crate_column, crate_depth + count
+       from apply_moves
+       join moves on moves.id = move_id
+       where move_id > 0 and from_column = crate_column
+       union all
+       -- Case 3
+       select final_column, move_id - 1,  crate_column, crate_depth
+       from apply_moves
+       join moves on moves.id = move_id
+       where move_id > 0 and from_column != crate_column and to_column != crate_column
+       )
+       select * from apply_moves
+
+#+end_src
+
+#+RESULTS:
+
+
+#+begin_src sqlite :db ./day05.db :colnames yes :exports both
+  with
+  result_crates as
+  (select crate  from all_moves_part2 
+  join crates on crate_column = crates.column and crate_depth = crates.depth
+  where move_id = 0
+  order by final_column)
+  select group_concat(crate, '') as Result from result_crates
+#+end_src
+
+#+RESULTS:
+| Result    |
+|-----------|
+| CQQBBJFCS |
