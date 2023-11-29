@@ -154,55 +154,62 @@ Part 1 and 2 vary in how the crane picks up items and places them on the next co
 * Part 1
 
 #+begin_src sqlite :db ./day05.db :colnames yes :exports both
-  drop table if exists all_moves_part1;
-  create table all_moves_part1 as
-  with recursive
-       last_move(move_id) as (select max(id) from moves),
-       initial(final_column, move_id, crate_column, crate_depth) as (
-          select column, move_id, column as crate_column, depth as crate_depth from final_crates join last_move
-       ),
-       apply_moves(final_column, move_id, crate_column, crate_depth) as (
-       -- Initial
-       select * from initial
-       union all
-       -- Case 1 a
-       select final_column, move_id - 1, moves.from_column, count - crate_depth - 1
-       from apply_moves
-       join moves on moves.id = move_id
-       where move_id > 0 and to_column = crate_column and count > crate_depth
-       union all
-       -- Case 1 b
-       select final_column, move_id - 1,  crate_column, crate_depth - count
-       from apply_moves
-       join moves on moves.id = move_id
-       where move_id > 0 and to_column = crate_column and count <= crate_depth
-       union all
-       -- Case 2
-       select final_column, move_id - 1,  crate_column, crate_depth + count
-       from apply_moves
-       join moves on moves.id = move_id
-       where move_id > 0 and from_column = crate_column
-       union all
-       -- Case 3
-       select final_column, move_id - 1,  crate_column, crate_depth
-       from apply_moves
-       join moves on moves.id = move_id
-       where move_id > 0 and from_column != crate_column and to_column != crate_column
-       )
-       select * from apply_moves
-
+ drop table if exists all_moves_part1;
+create table all_moves_part1 as
+with recursive last_move(move_id) as (select max(id) from moves),
+               initial(final_column, move_id, crate_column, crate_depth)
+                   as (select column, move_id, column as crate_column, depth as crate_depth
+                       from final_crates join last_move),
+               apply_moves(final_column, move_id, crate_column, crate_depth) as (
+                   -- Initial
+                   select *
+                   from initial
+                   union all
+                   -- Case 1 a
+                   select final_column, move_id - 1, moves.from_column, count - crate_depth - 1
+                   from apply_moves
+                            join moves on moves.id = move_id
+                   where move_id > 0
+                     and to_column = crate_column
+                     and count > crate_depth
+                   union all
+                   -- Case 1 b
+                   select final_column, move_id - 1, crate_column, crate_depth - count
+                   from apply_moves
+                            join moves on moves.id = move_id
+                   where move_id > 0
+                     and to_column = crate_column
+                     and count <= crate_depth
+                   union all
+                   -- Case 2
+                   select final_column, move_id - 1, crate_column, crate_depth + count
+                   from apply_moves
+                            join moves on moves.id = move_id
+                   where move_id > 0
+                     and from_column = crate_column
+                   union all
+                   -- Case 3
+                   select final_column, move_id - 1, crate_column, crate_depth
+                   from apply_moves
+                            join moves on moves.id = move_id
+                   where move_id > 0
+                     and from_column != crate_column
+                     and to_column != crate_column)
+select *
+from apply_moves
 #+end_src
 
 #+RESULTS:
 
 #+begin_src sqlite :db ./day05.db :colnames yes :exports both
-  with
-  result_crates as
-  (select crate  from all_moves_part1 
-  join crates on crate_column = crates.column and crate_depth = crates.depth
-  where move_id = 0
-  order by final_column)
-  select group_concat(crate, '') as Result from result_crates
+with result_crates as
+         (select crate
+          from all_moves_part2
+                   join crates on crate_column = crates.column and crate_depth = crates.depth
+          where move_id = 0
+          order by final_column)
+select group_concat(crate, '') as Result
+from result_crates
 #+end_src
 
 #+RESULTS:
@@ -213,56 +220,63 @@ Part 1 and 2 vary in how the crane picks up items and places them on the next co
 * Part 2
 
 #+begin_src sqlite :db ./day05.db :colnames yes :exports both
-  drop table if exists all_moves_part2;
-  create table all_moves_part2 as
-  with recursive
-       last_move(move_id) as (select max(id) from moves),
-       initial(final_column, move_id, crate_column, crate_depth) as (
-          select column, move_id, column as crate_column, depth as crate_depth from final_crates join last_move
-       ),
-       apply_moves(final_column, move_id, crate_column, crate_depth) as (
-       -- Initial
-       select * from initial
-       union all
-       -- Case 1 a
-       select final_column, move_id - 1, moves.from_column, crate_depth
-       from apply_moves
-       join moves on moves.id = move_id
-       where move_id > 0 and to_column = crate_column and count > crate_depth
-       union all
-       -- Case 1 b
-       select final_column, move_id - 1,  crate_column, crate_depth - count
-       from apply_moves
-       join moves on moves.id = move_id
-       where move_id > 0 and to_column = crate_column and count <= crate_depth
-       union all
-       -- Case 2
-       select final_column, move_id - 1,  crate_column, crate_depth + count
-       from apply_moves
-       join moves on moves.id = move_id
-       where move_id > 0 and from_column = crate_column
-       union all
-       -- Case 3
-       select final_column, move_id - 1,  crate_column, crate_depth
-       from apply_moves
-       join moves on moves.id = move_id
-       where move_id > 0 and from_column != crate_column and to_column != crate_column
-       )
-       select * from apply_moves
-
+drop table if exists all_moves_part2;
+create table all_moves_part2 as
+with recursive last_move(move_id) as (select max(id) from moves),
+               initial(final_column, move_id, crate_column, crate_depth)
+                   as (select column, move_id, column as crate_column, depth as crate_depth
+                       from final_crates join last_move),
+               apply_moves(final_column, move_id, crate_column, crate_depth) as (
+                   -- Initial
+                   select *
+                   from initial
+                   union all
+                   -- Case 1 a
+                   select final_column, move_id - 1, moves.from_column, crate_depth
+                   from apply_moves
+                            join moves on moves.id = move_id
+                   where move_id > 0
+                     and to_column = crate_column
+                     and count > crate_depth
+                   union all
+                   -- Case 1 b
+                   select final_column, move_id - 1, crate_column, crate_depth - count
+                   from apply_moves
+                            join moves on moves.id = move_id
+                   where move_id > 0
+                     and to_column = crate_column
+                     and count <= crate_depth
+                   union all
+                   -- Case 2
+                   select final_column, move_id - 1, crate_column, crate_depth + count
+                   from apply_moves
+                            join moves on moves.id = move_id
+                   where move_id > 0
+                     and from_column = crate_column
+                   union all
+                   -- Case 3
+                   select final_column, move_id - 1, crate_column, crate_depth
+                   from apply_moves
+                            join moves on moves.id = move_id
+                   where move_id > 0
+                     and from_column != crate_column
+                     and to_column != crate_column)
+select *
+from apply_moves
 #+end_src
 
 #+RESULTS:
 
 
 #+begin_src sqlite :db ./day05.db :colnames yes :exports both
-  with
-  result_crates as
-  (select crate  from all_moves_part2 
-  join crates on crate_column = crates.column and crate_depth = crates.depth
-  where move_id = 0
-  order by final_column)
-  select group_concat(crate, '') as Result from result_crates
+with result_crates as
+         (select crate
+          from all_moves_part2
+                   join crates on crate_column = crates.column and crate_depth = crates.depth
+          where move_id = 0
+          order by final_column)
+select group_concat(crate, '') as Result
+from result_crates
 #+end_src
 
 #+RESULTS:
