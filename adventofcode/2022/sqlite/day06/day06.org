@@ -92,7 +92,7 @@ Count the number of bits in the number 6749
 * Part 1
 
 The algorithm
-1. Conver the list of characters to a list of where each character is represented by a single bit.
+1. Convert the list of characters to one where each character is represented by a single bit.
 2. Construct windows of size 4 over the list of ints.
 3. And all the bits in each window   
 4. Count the bits in each window.
