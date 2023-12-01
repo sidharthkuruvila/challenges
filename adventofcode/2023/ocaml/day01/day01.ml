@@ -32,7 +32,7 @@ module Part_2 = struct
   let find_digit ~pos s =
     List.filter_map digits ~f:(fun (value, word) ->
         String.substr_index ~pos s ~pattern:word
-        |> Option.map ~f:(fun found_pos -> (found_pos, value, found_pos + String.length word)))
+        |> Option.map ~f:(fun found_pos -> (found_pos, value, found_pos + 1)))
     |> List.min_elt ~compare:(fun (a, _, _) (b, _, _) -> a - b)
 
   let rec find_digits  ?(pos=0) s =

@@ -311,7 +311,7 @@ Check for overlaps, there are 38 cases of overlaps
 #+begin_src sqlite :db ./day01.db
 drop table if exists overlaps;
 create table overlaps as
-select line_id,
+xselect line_id,
        a.idx   as a_idx,
        a.len   as a_len,
        a.digit as a_digit,
@@ -483,52 +483,4 @@ select sum(pair)  as Result from part2_pairs
 |--------|
 |  54431 |
 
-* Compare with out put of ocaml
-
-Looks like there may be a bug in the question. The sqlite version is incorect it only picks the first digit of each value it finds. But it appears to give the correct result.
-
-#+begin_src sqlite :db ./day01.db
-  drop table if exists ocaml_output;	
-  create table ocaml_output(line string, digits int,  pair int);
-  .mode csv ocaml_output
-  .import ocaml_output.csv ocaml_output
-#+end_src
-
-#+RESULTS:
-
- #+begin_src sqlite :db ./day01.db :colnames yes :exports both
-         select line_id, line, ocaml_output.pair as ocaml, part2_pairs.pair as sqlite  from ocaml_output
-                join lines using (line)
-                join part2_pairs using(line_id)
-                where part2_pairs.pair != ocaml_output.pair limit 10
-#+end_src
-
-#+RESULTS:
-| line_id | line                                           | ocaml | sqlite |
-|---------+------------------------------------------------+-------+--------|
-|      26 | fourvptdnbpqcxktwoone4oneone                   |    41 |     44 |
-|      40 | 7pqqdrrvcmvbr8nine57                           |    77 |     75 |
-|      53 | xnmfive8foursixsix8zjlczq                      |    58 |     56 |
-|      57 | 76onejxthllvxrn82lddxx86                       |    76 |     72 |
-|      65 | zndcdgninethreekdspzsgf5ninetdx                |    99 |     95 |
-|      69 | eightntrlqffxzjjqrxvthree7eight                |    88 |     87 |
-|      71 | nineeightptzqqqlfndtnq44dfhgnzbpjpkkjfkvseight |    98 |     94 |
-|      72 | three8three                                    |    33 |     38 |
-|      78 | lppfqnkgzpbc1nine6ninefninepgspdhvjtk          |    19 |     16 |
-|      86 | rmcbzk4sevennine12seven                        |    47 |     42 |
-
-
-Looking at the ints for line 26 it is clearly wrong
-
- #+begin_src sqlite :db ./day01.db :colnames yes :exports both
-         select * from part2_ints where line_id = 26 order by idx
-#+end_src
-
-#+RESULTS:
-| line_id | idx | digit | label | len |
-|---------+-----+-------+-------+-----|
-|      26 |   0 |     4 | four  |   4 |
-|      26 |  15 |     2 | two   |   3 |
-|      26 |  18 |     1 | one   |   3 |
-|      26 |  21 |     4 | 4     |   1 |
-
+This one is completely wrong. I don't know how I got the right result.
