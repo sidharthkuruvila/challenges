@@ -16,8 +16,10 @@
 #+RESULTS:
 [[file:input.csv]]
 
-
 Load csv file into a table
+
+
+
 
 #+begin_src sqlite :db ./day01.db
   drop table if exists input;	
@@ -45,7 +47,6 @@ Load csv file into a table
 |       1 |       8 | n   |
 |       1 |       9 | e   |
 |       2 |       1 | h   |
-
 
 * Part 1
 
@@ -188,7 +189,6 @@ select sum(pair)  as Result from pairs
 
 * Part 2
 
-
 Create a table to map numeric and word strings to digits
 
 #+begin_src sqlite :db ./day01.db
@@ -208,12 +208,9 @@ from digits
 union
 select cast(digit as string), digit
 from digits
-union
-select '0', 0
-#+end_src	
+#+end_src
 
 #+RESULTS:
-
 
 #+begin_src sqlite :db ./day01.db :colnames yes :exports both
   select * from digits
@@ -222,156 +219,83 @@ select '0', 0
 #+RESULTS:
 | label | digit |
 |-------+-------|
-|     1 |     1 |
-|     2 |     2 |
-|     3 |     3 |
-|     4 |     4 |
-|     5 |     5 |
-|     6 |     6 |
-|     7 |     7 |
-|     8 |     8 |
-|     9 |     9 |
-|     0 |     0 |
+| 1     |     1 |
+| 2     |     2 |
+| 3     |     3 |
+| 4     |     4 |
+| 5     |     5 |
+| 6     |     6 |
+| 7     |     7 |
+| 8     |     8 |
+| 9     |     9 |
 | eight |     8 |
-|  five |     5 |
-|  four |     4 |
-|  nine |     9 |
-|   one |     1 |
+| five  |     5 |
+| four  |     4 |
+| nine  |     9 |
+| one   |     1 |
 | seven |     7 |
-|   six |     6 |
+| six   |     6 |
 | three |     3 |
-|   two |     2 |
+| two   |     2 |
 
-
-Convert each line back to a string
+Construct substrings
 #+begin_src sqlite :db ./day01.db
-drop table if exists lines;
-create table lines as
-select line_id, group_concat(chr, '') as line
+drop table if exists substrings;
+create table substrings as
+select line_id, char_id, group_concat(chr, '') over ( partition by line_id order by char_id  range between current row and 4 following)  as substring
 from input
-group by line_id
 #+end_src	  
 
 #+RESULTS:
 
 #+begin_src sqlite :db ./day01.db :colnames yes :exports both
-  select * from lines limit 10
+  select * from substrings limit 10
 #+end_src
 
 #+RESULTS:
-| line_id | line                       |
-|---------+----------------------------|
-|       1 | 9eightone                  |
-|       2 | hczsqfour3nxm5seven4       |
-|       3 | 9twopjqkghmbone            |
-|       4 | rhrfthv886vflthreeztvzs    |
-|       5 | tlbtwo62five               |
-|       6 | ninetwonine234nvtlzxzczx   |
-|       7 | 28sevenseven               |
-|       8 | 2sevensxszqdhjg2threexzjj3 |
-|       9 | 2fvq                       |
-|      10 | 781dk97eight26             |
+| line_id | char_id | substring |
+|---------+---------+-----------|
+|       1 |       1 | 9eigh     |
+|       1 |       2 | eight     |
+|       1 |       3 | ighto     |
+|       1 |       4 | ghton     |
+|       1 |       5 | htone     |
+|       1 |       6 | tone      |
+|       1 |       7 | one       |
+|       1 |       8 | ne        |
+|       1 |       9 | e         |
+|       2 |       1 | hczsq     |
 
-Get the index of each digit in the input strings
+
+Use the substrings table to search for digits
 
 #+begin_src sqlite :db ./day01.db
-drop table if exists part2_ints;
-create table part2_ints as
-with ints(line_id, _idx, digit, label) as (select line_id, instr(line, label) as _idx, digit, label
-                                           from lines
-                                                    join digits)
-select line_id, _idx - 1 as idx, digit, label, length(label) as len
-from ints
-where _idx != 0
-#+end_src	  
+  drop table if exists digit_positions;
+  create table digit_positions as
+    select line_id , char_id as digit_position, digit as digit_value
+    from substrings
+    join digits on substr(substring, 0, length(label)+1) like label
+#+end_src  
 
 #+RESULTS:
 
 #+begin_src sqlite :db ./day01.db :colnames yes :exports both
-  select * from part2_ints limit 10
+select * from digit_positions limit 10
 #+end_src
 
 #+RESULTS:
-| line_id | idx | digit | label | len |
-|---------+-----+-------+-------+-----|
-|       1 |   0 |     9 | 9     |   1 |
-|       1 |   1 |     8 | eight |   5 |
-|       1 |   6 |     1 | one   |   3 |
-|       2 |   9 |     3 | 3     |   1 |
-|       2 |  19 |     4 | 4     |   1 |
-|       2 |  13 |     5 | 5     |   1 |
-|       2 |   5 |     4 | four  |   4 |
-|       2 |  14 |     7 | seven |   5 |
-|       3 |   0 |     9 | 9     |   1 |
-|       3 |  12 |     1 | one   |   3 |
-
-
-Check for overlaps, there are 38 cases of overlaps
-
-#+begin_src sqlite :db ./day01.db
-drop table if exists overlaps;
-create table overlaps as
-xselect line_id,
-       a.idx   as a_idx,
-       a.len   as a_len,
-       a.digit as a_digit,
-       a.label as a_label,
-       b.idx   as b_idx,
-       b.len   as b_len,
-       b.digit as b_digit,
-       b.label as b_label
-from part2_ints as a
-         join part2_ints as b using (line_id)
-where (((a.idx < b.idx and b.idx < a.idx + a.len) or (b.idx < a.idx and a.idx < b.idx + b.len)))
-  and a.idx < b.idx 
-#+end_src
-
-#+RESULTS:
-
-#+begin_src sqlite :db ./day01.db :colnames yes :exports both
-   select * from overlaps limit 10
-#+end_src
-
-#+RESULTS:
-| line_id | a_idx | a_len | a_digit | a_label | b_idx | b_len | b_digit | b_label |
-|---------+-------+-------+---------+---------+-------+-------+---------+---------|
-|      15 |    11 |     5 |       8 | eight   |    15 |     3 |       2 | two     |
-|      18 |     6 |     3 |       1 | one     |     8 |     5 |       8 | eight   |
-|     109 |     1 |     3 |       2 | two     |     3 |     3 |       1 | one     |
-|     147 |     3 |     5 |       8 | eight   |     7 |     3 |       2 | two     |
-|     166 |     1 |     3 |       1 | one     |     3 |     5 |       8 | eight   |
-|     172 |    12 |     5 |       8 | eight   |    16 |     3 |       2 | two     |
-|     229 |     1 |     3 |       1 | one     |     3 |     5 |       8 | eight   |
-|     249 |     3 |     3 |       2 | two     |     5 |     3 |       1 | one     |
-|     259 |    52 |     3 |       2 | two     |    54 |     3 |       1 | one     |
-|     278 |    11 |     3 |       2 | two     |    13 |     3 |       1 | one     |
-
-Check that no line contains more than one overlap, this would mean that the second number can simply be dropped
-
-Count the number of overlaps in each line. No line contains more than 1 overlap
-
-#+begin_src sqlite :db ./day01.db :colnames yes :exports both
-with counts(line_id, overlaps) as (select line_id, count(*) from overlaps group by line_id)
-select count(*) as Count, overlaps as Overlaps
-from counts
-#+end_src
-
-#+RESULTS:
-| Count | Overlaps |
-|-------+----------|
-|    38 |        1 |
-
-
-
-Create a table of removable digits, these are ones that overlap existing digits.
-
-#+begin_src sqlite :db ./day01.db :colnames yes :exports both
-  drop table if exists removable;
-  create table removable as
-  select line_id, b_idx as idx from overlaps       
-#+end_src	
-
-#+RESULTS:
+| line_id | digit_position | digit_value |
+|---------+----------------+-------------|
+|       1 |              1 |           9 |
+|       1 |              2 |           8 |
+|       1 |              7 |           1 |
+|       2 |              6 |           4 |
+|       2 |             10 |           3 |
+|       2 |             14 |           5 |
+|       2 |             15 |           7 |
+|       2 |             20 |           4 |
+|       3 |              1 |           9 |
+|       3 |              2 |           2 |
 
 
 
@@ -380,10 +304,10 @@ Create a table of removable digits, these are ones that overlap existing digits.
 #+begin_src sqlite :db ./day01.db
 drop table if exists part2_minimums;
 create table part2_minimums as
-with min_char_id(line_id, idx) as (select line_id, min(idx) from part2_ints group by line_id)
-select line_id, digit
-from part2_ints
-         join min_char_id using (line_id, idx)
+with min_char_id(line_id, digit_position) as (select line_id, min(digit_position) from digit_positions group by line_id)
+select line_id, digit_value
+from digit_positions
+         join min_char_id using (line_id, digit_position)
 #+end_src	
 
 #+RESULTS:
@@ -393,32 +317,30 @@ from part2_ints
 #+end_src
 
 #+RESULTS:
-| line_id | digit |
-|---------+-------|
-|       1 |     9 |
-|       2 |     4 |
-|       3 |     9 |
-|       4 |     8 |
-|       5 |     2 |
-|       6 |     9 |
-|       7 |     2 |
-|       8 |     2 |
-|       9 |     2 |
-|      10 |     7 |
+| line_id | digit_value |
+|---------+-------------|
+|       1 |           9 |
+|       2 |           4 |
+|       3 |           9 |
+|       4 |           8 |
+|       5 |           2 |
+|       6 |           9 |
+|       7 |           2 |
+|       8 |           2 |
+|       9 |           2 |
+|      10 |           7 |
 
 Find the last digit that appears in each line
 
 #+begin_src sqlite :db ./day01.db
 drop table if exists part2_maximums;
 create table part2_maximums as
-with min_char_id(line_id, idx) as (select line_id, max(part2_ints.idx)
-                                   from part2_ints
-                                            left join removable using (line_id, idx)
-                                   where removable.idx is null
+with min_char_id(line_id, digit_position) as (select line_id, max(digit_position)
+                                   from digit_positions
                                    group by line_id)
-select line_id, digit
-from part2_ints
-         join min_char_id using (line_id, idx)
+select line_id, digit_value
+from digit_positions
+         join min_char_id using (line_id, digit_position)
 #+end_src	
 
 #+RESULTS:
@@ -428,18 +350,18 @@ from part2_ints
 #+end_src
 
 #+RESULTS:
-| line_id | digit |
-|---------+-------|
-|       1 |     1 |
-|       2 |     4 |
-|       3 |     1 |
-|       4 |     3 |
-|       5 |     5 |
-|       6 |     4 |
-|       7 |     7 |
-|       8 |     3 |
-|       9 |     2 |
-|      10 |     6 |
+| line_id | digit_value |
+|---------+-------------|
+|       1 |           1 |
+|       2 |           4 |
+|       3 |           1 |
+|       4 |           3 |
+|       5 |           5 |
+|       6 |           4 |
+|       7 |           7 |
+|       8 |           3 |
+|       9 |           2 |
+|      10 |           6 |
 
 
 Construct minimum-maximum pairs
@@ -447,7 +369,7 @@ Construct minimum-maximum pairs
 #+begin_src sqlite :db ./day01.db
 drop table if exists part2_pairs;
 create table part2_pairs as
-select line_id, mn.digit * 10 + mx.digit as pair
+select line_id, mn.digit_value * 10 + mx.digit_value as pair
 from part2_maximums as mx
          join part2_minimums as mn using (line_id)
 #+end_src	
@@ -455,22 +377,22 @@ from part2_maximums as mx
 #+RESULTS:
 
 #+begin_src sqlite :db ./day01.db :colnames yes :exports both
-  select line_id, pair from part2_pairs  where pair = 17 limit 10
+  select line_id, pair from part2_pairs  limit 10
 #+end_src
 
 #+RESULTS:
 | line_id | pair |
 |---------+------|
-|      63 |   17 |
-|     137 |   17 |
-|     152 |   17 |
-|     203 |   17 |
-|     255 |   17 |
-|     269 |   17 |
-|     568 |   17 |
-|     685 |   17 |
-|     708 |   17 |
-|     712 |   17 |
+|       1 |   91 |
+|       2 |   44 |
+|       3 |   91 |
+|       4 |   83 |
+|       5 |   25 |
+|       6 |   94 |
+|       7 |   27 |
+|       8 |   23 |
+|       9 |   22 |
+|      10 |   76 |
 
 Calculate the sum of all pairs
 
