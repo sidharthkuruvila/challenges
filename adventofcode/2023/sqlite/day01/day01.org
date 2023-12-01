@@ -404,5 +404,3 @@ select sum(pair)  as Result from part2_pairs
 | Result |
 |--------|
 |  54431 |
-
-This one is completely wrong. I don't know how I got the right result.
