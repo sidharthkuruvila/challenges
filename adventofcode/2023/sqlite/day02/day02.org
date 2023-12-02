@@ -1,0 +1,134 @@
+* Load input into sqlite
+
+#+begin_src awk :in-file ../../input/day02/input.txt :results value file :file input.csv
+  {
+      gsub(/[^[:alnum:][:space:]]/, "")
+      group_id = $2
+      for(i = 3; i<NF;i+=2){
+          print group_id","(i-3)/2 + 1","$(i+1)","$i
+      }
+  }
+#+end_src
+
+#+RESULTS:
+[[file:input.csv]]
+
+Load csv file into a table
+
+
+
+
+#+begin_src sqlite :db ./day02.db
+  drop table if exists input;	
+  create table input(game_id int, read_id int,  color string, count int);
+  .mode csv input
+  .import input.csv input
+#+end_src
+
+#+RESULTS:
+
+#+begin_src sqlite :db ./day02.db :colnames yes :exports both
+  select * from input limit 10
+#+end_src
+
+#+RESULTS:
+| game_id | read_id | color | count |
+|---------+---------+-------+-------|
+|       1 |       1 | green |     7 |
+|       1 |       2 | red   |    14 |
+|       1 |       3 | blue  |     5 |
+|       1 |       4 | red   |     8 |
+|       1 |       5 | green |     4 |
+|       1 |       6 | green |     6 |
+|       1 |       7 | red   |    18 |
+|       1 |       8 | blue  |     9 |
+|       2 |       1 | blue  |     3 |
+|       2 |       2 | red   |    15 |
+
+* Part 1
+
+Construct a table to store the counts of the cubes
+
+#+begin_src sqlite :db ./day02.db
+  drop table if exists cubes;	
+  create table cubes as
+  with cubes(color, max_count) as (values ("red", 12), ("blue", 13), ("blue", 14))
+  select * from cubes
+#+end_src
+
+#+RESULTS:
+
+#+begin_src sqlite :db ./day02.db :colnames yes :exports both
+  select * from cubes
+#+end_src
+
+#+RESULTS:
+| color | max_count |
+|-------+-----------|
+| red   |        12 |
+| blue  |        13 |
+| blue  |        14 |
+
+Find the invalid games
+#+begin_src sqlite :db ./day02.db
+  drop table if exists invalid_games;	
+  create table invalid_games as
+  select distinct game_id from input join cubes using (color)
+  where count > max_count
+#+end_src
+
+#+RESULTS:
+
+#+begin_src sqlite :db ./day02.db :colnames yes :exports both
+  select * from invalid_games limit 10
+#+end_src
+
+#+RESULTS:
+| game_id |
+|---------|
+|       1 |
+|       2 |
+|       4 |
+|       8 |
+|      15 |
+|      17 |
+|      24 |
+|      26 |
+|      38 |
+|      41 |
+
+
+Sum  up the ids of the valid games
+
+#+begin_src sqlite :db ./day02.db :colnames yes :exports both
+  with
+  games(game_id) as (select distinct game_id from input),
+  valid_games(game_id) as
+      (select game_id from games left join invalid_games using(game_id) where invalid_games.game_id is  null)
+  select sum(game_id) as Result from valid_games
+#+end_src
+
+#+RESULTS:
+| Result |
+|--------|
+|   2422 |
+
+* Part 2
+
+#+begin_src sqlite :db ./day02.db :colnames yes :exports both
+          
+  with
+        max_counts as
+            (select game_id, color, read_id, max(count) as max_count from input group by game_id, color),
+         power(game_id, power) as (select game_id, red.max_count * green.max_count * blue.max_count
+         from max_counts red
+         full outer join  max_counts green using (game_id)
+         full outer join max_counts blue using (game_id)
+         where red.color = 'red' and green.color = 'green' and blue.color='blue')
+         select sum(power) as Result from power
+#+end_src
+
+#+RESULTS:
+| Result |
+|--------|
+|  58269 |
