@@ -115,15 +115,18 @@ Sum  up the ids of the valid games
 
 * Part 2
 
+Sqlite doesn't have a multiply aggregate function out of the box so I am forced to join tables for each colour.
+
+Ana alternate approach would be to add a custom multiply function and use a group by instead of the joins
+
 #+begin_src sqlite :db ./day02.db :colnames yes :exports both
-          
   with
         max_counts as
             (select game_id, color, read_id, max(count) as max_count from input group by game_id, color),
          power(game_id, power) as (select game_id, red.max_count * green.max_count * blue.max_count
          from max_counts red
-         full outer join  max_counts green using (game_id)
-         full outer join max_counts blue using (game_id)
+         join  max_counts green using (game_id)
+         join max_counts blue using (game_id)
          where red.color = 'red' and green.color = 'green' and blue.color='blue')
          select sum(power) as Result from power
 #+end_src
