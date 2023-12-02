@@ -90,12 +90,12 @@ Find the invalid games
 |       2 |
 |       4 |
 |       8 |
+|      11 |
+|      13 |
 |      15 |
 |      17 |
-|      24 |
-|      26 |
-|      38 |
-|      41 |
+|      19 |
+|      20 |
 
 
 Sum  up the ids of the valid games
@@ -111,7 +111,7 @@ Sum  up the ids of the valid games
 #+RESULTS:
 | Result |
 |--------|
-|   2422 |
+|   2294 |
 
 * Part 2
 
