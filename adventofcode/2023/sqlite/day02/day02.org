@@ -52,7 +52,7 @@ Construct a table to store the counts of the cubes
 #+begin_src sqlite :db ./day02.db
   drop table if exists cubes;	
   create table cubes as
-  with cubes(color, max_count) as (values ("red", 12), ("blue", 13), ("blue", 14))
+  with cubes(color, max_count) as (values ("red", 12), ("green", 13), ("blue", 14))
   select * from cubes
 #+end_src
 
@@ -66,7 +66,7 @@ Construct a table to store the counts of the cubes
 | color | max_count |
 |-------+-----------|
 | red   |        12 |
-| blue  |        13 |
+| green |        13 |
 | blue  |        14 |
 
 Find the invalid games
@@ -90,12 +90,12 @@ Find the invalid games
 |       2 |
 |       4 |
 |       8 |
-|      11 |
-|      13 |
 |      15 |
 |      17 |
-|      19 |
-|      20 |
+|      24 |
+|      26 |
+|      38 |
+|      41 |
 
 
 Sum  up the ids of the valid games
@@ -111,7 +111,7 @@ Sum  up the ids of the valid games
 #+RESULTS:
 | Result |
 |--------|
-|   2294 |
+|   2101 |
 
 * Part 2
 
