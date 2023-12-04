@@ -1,0 +1,238 @@
+* Load input into sqlite
+
+#+begin_src awk :in-file ../../input/day03/input.txt :results value file :file input.csv
+    BEGIN{
+        row = 1
+    }
+    {
+        last_char_type = "dot";
+        start_index = 1;
+
+        # Read beyond the  the length of the line and
+        # treat an empty string as a sentinal
+        for(i = 1; i <= length($0) + 1; i++) {
+            current_char = substr($0, i, 1)
+
+            if(current_char ~ /[0-9]/) {
+                current_char_type = "digit"
+            } else if(current_char==".") {
+                current_char_type = "dot"
+            } else if(current_char =="") {
+                current_char_type = "dot"
+            } else {
+                current_char_type = "symbol"
+            }
+
+            if(current_char_type == "digit") {
+                if(last_char_type != "digit") {
+                    start_index = i;
+                }
+                end_index = i;
+            }
+            if(current_char_type == "symbol") {
+                print row","i",symbol,"substr($0,i, 1)
+            }
+            if(current_char_type != "digit") {
+                if(last_char_type == "digit") {
+                     print row","start_index",number,"substr($0,start_index, (end_index - start_index + 1))
+                }
+            }
+            last_char_type = current_char_type
+        }
+        row++
+    }
+#+end_src
+
+#+RESULTS:
+[[file:input.csv]]
+
+Load csv file into a table
+
+
+
+
+#+begin_src sqlite :db ./day03.db
+  drop table if exists input;	
+  create table input(row_id int, col_id int,  type string, value string);
+  .mode csv input
+  .import input.csv input
+#+end_src
+
+#+RESULTS:
+
+#+begin_src sqlite :db ./day03.db :colnames yes :exports both
+  select * from input limit 10
+#+end_src
+
+#+RESULTS:
+| row_id | col_id | type   | value |
+|--------+--------+--------+-------|
+|      1 |     14 | number |    65 |
+|      1 |     34 | number |   998 |
+|      1 |     46 | number |   453 |
+|      1 |     84 | number |   845 |
+|      1 |     89 | number |   773 |
+|      1 |    117 | number |   307 |
+|      1 |    124 | number |   527 |
+|      1 |    138 | number |   541 |
+|      2 |     13 | symbol |     * |
+|      2 |     24 | number |   125 |
+
+
+
+Construct a table of numbers
+
+#+begin_src sqlite :db ./day03.db
+  drop table if exists numbers;	
+  create table numbers as
+  select row_id, col_id, cast(value as int) as number, length(value) as len  from input
+  where type = 'number'
+#+end_src
+
+#+RESULTS:
+
+#+begin_src sqlite :db ./day03.db :colnames yes :exports both
+  select * from numbers limit 10
+#+end_src
+
+#+RESULTS:
+| row_id | col_id | number | len |
+|--------+--------+--------+-----|
+|      1 |     14 |     65 |   2 |
+|      1 |     34 |    998 |   3 |
+|      1 |     46 |    453 |   3 |
+|      1 |     84 |    845 |   3 |
+|      1 |     89 |    773 |   3 |
+|      1 |    117 |    307 |   3 |
+|      1 |    124 |    527 |   3 |
+|      1 |    138 |    541 |   3 |
+|      2 |     24 |    125 |   3 |
+|      2 |     38 |    331 |   3 |
+
+
+#+begin_src sqlite :db ./day03.db :colnames yes :exports both
+  select number, row_id, col_id from numbers where number = 822 limit 10
+#+end_src
+
+#+RESULTS:
+| number | row_id | col_id |
+|--------+--------+--------|
+|    822 |     19 |     33 |
+
+Construct a table of symbols
+
+#+begin_src sqlite :db ./day03.db
+  drop table if exists symbols;	
+  create table symbols as
+  select row_id, col_id, value as symbol  from input
+  where type = 'symbol'
+#+end_src
+
+#+RESULTS:
+
+#+begin_src sqlite :db ./day03.db :colnames yes :exports both
+  select * from symbols limit 10
+#+end_src
+
+#+RESULTS:
+| row_id | col_id | symbol |
+|--------+--------+--------|
+|      2 |     13 | *      |
+|      2 |     34 | *      |
+|      2 |     47 | *      |
+|      2 |     81 | /      |
+|      2 |     85 | *      |
+|      2 |     90 | *      |
+|      2 |    103 | *      |
+|      2 |    116 | *      |
+|      2 |    123 | *      |
+|      3 |     27 | *      |
+
+
+Construct a bounds table
+
+#+begin_src sqlite :db ./day03.db
+drop table if exists bounds;
+create table bounds as
+with bounds(i, j) as (values (-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1), (1, -1), (1, 0), (1, 1))
+select *
+from bounds
+#+end_src
+
+#+RESULTS:
+
+#+begin_src sqlite :db ./day03.db :colnames yes :exports both
+  select * from bounds
+#+end_src
+
+#+RESULTS:
+|  i |  j |
+|----+----|
+| -1 | -1 |
+| -1 |  0 |
+| -1 |  1 |
+|  0 | -1 |
+|  0 |  1 |
+|  1 | -1 |
+|  1 |  0 |
+|  1 |  1 |
+
+
+* Part 1
+
+Find numbers that are adjacent to symbols
+
+#+begin_src sqlite :db ./day03.db :colnames yes :exports both
+with symbol_bounds(row_id, col_id, symbol) as (select distinct row_id + i, col_id + j, symbol
+                                               from symbols
+                                                        join bounds),
+     part_numbers(number, row_id, col_id) as (select distinct number, n.row_id, n.col_id
+                                              from numbers as n
+                                                       join symbol_bounds as s
+                                                            on n.row_id = s.row_id and n.col_id <= s.col_id and
+                                                               (n.col_id + len) > s.col_id)
+select sum(number) as Result
+from part_numbers
+#+end_src
+
+#+RESULTS:
+| Result |
+|--------|
+| 530495 |
+
+
+* Part 2
+
+Find pairs of numbers that are adjacent to the same symbol `*`
+
+
+#+begin_src sqlite :db ./day03.db :colnames yes :exports both
+with gears(gear_id, row_id, col_id) as (select rowid as gear_id, row_id, col_id from symbols where symbol = '*'),
+     gear_bounds(gear_id, row_id, col_id) as (select distinct gear_id, row_id + i, col_id + j
+                                              from gears
+                                                       join bounds),
+     gear_numbers(gear_id, number_id, number) as (select distinct gear_id, numbers.rowid as number_id, number
+                                                  from numbers
+                                                           join gear_bounds on numbers.row_id = gear_bounds.row_id and
+                                                                               numbers.col_id <= gear_bounds.col_id and
+                                                                               (numbers.col_id + len) >
+                                                                               gear_bounds.col_id),
+     part_pairs(n_1, n_2) as (select n_1.number, n_2.number
+                              from gear_numbers n_1
+                                       join gear_numbers n_2 using (gear_id)
+                              where n_1.number_id > n_2.number_id),
+     ratios(n) as (select n_1 * n_2 from part_pairs)
+select sum(n) as Result
+from ratios
+#+end_src
+
+#+RESULTS:
+|   Result |
+|----------|
+| 80253814 |
+
+
+
+
+
+
