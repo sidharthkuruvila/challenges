@@ -1,0 +1,153 @@
+* Load input into sqlite
+
+Convert input into a csv file
+
+#+begin_src awk :in-file ../../input/day07/input.txt :results value file :file dirs.csv
+  function make_path(arr, len){
+
+      path = ":"
+      for(i = 1; i<=len;i++) {
+          path = path""arr[i]":"
+      }
+      return path
+  }
+
+   BEGIN {
+       idx = 1
+       path_depth = 0
+       split("", current_path)
+   }
+
+   $0 ~ /^[$] cd [a-z][a-z.]*$/ {
+       path_depth++
+       current_path[path_depth] = $3
+       next
+   }
+
+   $0 == "$ cd .." {
+       delete current_path[path_depth]
+       path_depth--
+       next
+   }
+
+
+   $0 ~ /^[0-9]/ {
+       print idx","make_path(current_path, path_depth)","$2","$1
+       idx++
+       next
+   }
+
+#+end_src
+
+#+RESULTS:
+[[file:dirs.csv]]
+
+
+
+
+#+begin_src sqlite :db ./day07.db
+  drop table if exists  file_sizes;
+  create table  file_sizes (id int, path string, file_name string, file_size int);
+  .mode csv  file_sizes 
+  .import dirs.csv  file_sizes 
+#+end_src
+
+#+RESULTS:
+
+#+begin_src sqlite :db ./day07.db :colnames yes :exports both
+  select * from file_sizes limit 10
+#+end_src
+
+#+RESULTS:
+| id | path  | file_name    | file_size |
+|----+-------+--------------+-----------|
+|  1 | :     | hcqbmwc.gts  |      4967 |
+|  2 | :     | hsbhwb.clj   |      5512 |
+|  3 | :     | pwgswq.fld   |    277125 |
+|  4 | :     | qdzr.btl     |     42131 |
+|  5 | :     | vmbnlzgb.wbd |    144372 |
+|  6 | :cvt: | bcqrmp.czf   |    146042 |
+|  7 | :cvt: | hvfvt.qtb    |    243293 |
+|  8 | :cvt: | lrpb         |    245795 |
+|  9 | :cvt: | qlqqmndd.zcb |    181756 |
+| 10 | :cvt: | rtfzt.tjp    |     18658 |
+
+#+begin_src sqlite :db ./day07.db  :colnames yes :exports both
+  drop table if exists directories;
+  create table directories as
+         select distinct (path) from file_sizes
+#+end_src	
+
+#+RESULTS:
+
+#+begin_src sqlite :db ./day07.db  :colnames yes :exports both
+          select  * from directories limit 10
+#+end_src	
+
+#+RESULTS:
+| path                          |
+|-------------------------------|
+| :                             |
+| :cvt:                         |
+| :cvt:bbgsthsd:                |
+| :cvt:chhdjtlw:                |
+| :cvt:chhdjtlw:mbdrgfzs:       |
+| :cvt:chhdjtlw:pbmcnpzf:       |
+| :cvt:cpcfcc:                  |
+| :cvt:cpcfcc:dqc:              |
+| :cvt:cpcfcc:dqc:cpcfcc:hvfvt: |
+| :cvt:cpcfcc:dqc:qmhnvmh:      |
+
+#+begin_src sqlite :db ./day07.db  :colnames yes :exports both
+    drop table if exists directory_sizes;
+    create table directory_sizes as
+            select directories.path, sum(file_size) as size from directories join file_sizes on file_sizes.path like (directories.path || '%') group by directories.path
+
+#+end_src          
+
+#+RESULTS:
+
+
+#+begin_src sqlite :db ./day07.db :colnames yes :exports both
+  select * from directory_sizes order by size asc limit 10
+#+end_src
+
+#+RESULTS:
+| path                                                    |  size |
+|---------------------------------------------------------+-------|
+| :cvt:djb:hvfvt:djstcnrt:tqnbfnt:hvfvt:rqhzvb:           |  8395 |
+| :cvt:djb:tps:rtltrng:cpgh:djfww:tgt:vqwvqss:bsdrhz:pld: |  8543 |
+| :cvt:djb:zwnlm:mtfr:                                    | 15391 |
+| :cvt:djb:dhvpqt:sbcj:                                   | 20611 |
+| :cvt:fgbqtjlj:                                          | 22217 |
+| :cvt:dch:djfww:lbrhbc:djfww:                            | 24794 |
+| :zft:zrtm:djfww:                                        | 30770 |
+| :zft:ltfb:wmhm:cmsgv:flgjbjg:                           | 34572 |
+| :cvt:hjsmmj:jql:zrtm:                                   | 35950 |
+| :zft:mrvsjgsq:rpmfcg:zft:                               | 43056 |
+
+* Part 1
+#+begin_src sqlite :db ./day07.db  :colnames yes :exports both
+   select sum (size) as Result from directory_sizes where size <= 100000
+#+end_src
+
+#+RESULTS:
+| Result |
+|--------|
+| 905276 |
+
+* Part 2
+
+#+begin_src sqlite :db ./day07.db  :colnames yes :exports both
+
+  with
+          max_size(max_size) as (select max(size) from directory_sizes),
+          to_delete(delete_size) as (select case when max_size <= 40000000 then 0 else max_size - 40000000 end from max_size)      
+          select size as Result from directory_sizes join to_delete where size > delete_size order by size asc limit 1
+#+end_src
+
+#+RESULTS:
+|  Result |
+|---------|
+| 7490863 |
+
