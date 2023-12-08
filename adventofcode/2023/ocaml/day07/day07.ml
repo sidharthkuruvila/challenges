@@ -19,7 +19,6 @@ module Part_1 = struct
            (hand_s, String.to_list hand_s |> List.map ~f:(Char.Map.find_exn card_scores), Int.of_string bit_s)
          )
     
-  
   let score hand =
     let counts = hand |> List.sort ~compare:Int.compare |> List.group ~break:(fun a b -> a <> b) |> List.map ~f:List.length |> List.sort ~compare:Int.compare in
     let type_score = match counts with
@@ -41,10 +40,6 @@ module Part_1 = struct
     |> List.sort ~compare:(fun (_, a, _) (_, b, _) -> Int.compare a b)
     |> List.mapi ~f:(fun i (_, _, bid) -> ((i+1) * bid))
     |> List.sum (module Int) ~f:Fun.id
-
-
-
-      
 end
 
 module Part_2 = struct
