@@ -1,0 +1,190 @@
+* Load input into sqlite
+
+#+begin_src awk :in-file ../../input/day04/small-input.txt
+  BEGIN{
+      row = 1
+      printf "" > "winning_numbers.csv"
+      printf "" > "numbers_you_have.csv"
+  }
+  {
+      i = 3
+
+      while($i != "|" ) {
+          print row","i","$i >> "winning_numbers.csv"
+          i++
+      }
+      i++
+      s = i
+      while(i <= NF){
+          print row","(i - s + 1)","$i >> "numbers_you_have.csv"
+          i++
+      }
+      row++
+  }
+#+end_src
+
+#+RESULTS:
+
+Load csv file into a table
+
+
+
+
+#+begin_src sqlite :db ./day04.db
+  drop table if exists winning_numbers;	
+  create table winning_numbers(card_id int, col_id int,  number int);
+  .mode csv winning_numbers
+  .import winning_numbers.csv winning_numbers
+#+end_src
+
+#+RESULTS:
+
+#+begin_src sqlite :db ./day04.db :colnames yes :exports both
+  select * from winning_numbers limit 10
+#+end_src
+
+#+RESULTS:
+| card_id | col_id | number |
+|---------+--------+--------|
+|       1 |      3 |     41 |
+|       1 |      4 |     48 |
+|       1 |      5 |     83 |
+|       1 |      6 |     86 |
+|       1 |      7 |     17 |
+|       2 |      3 |     13 |
+|       2 |      4 |     32 |
+|       2 |      5 |     20 |
+|       2 |      6 |     16 |
+|       2 |      7 |     61 |
+
+#+begin_src sqlite :db ./day04.db
+  drop table if exists numbers_you_have;	
+  create table numbers_you_have(card_id int, col_id int,  number int);
+  .mode csv numbers_you_have
+  .import numbers_you_have.csv numbers_you_have
+#+end_src
+
+#+RESULTS:
+
+#+begin_src sqlite :db ./day04.db :colnames yes :exports both
+  select * from numbers_you_have limit 10
+#+end_src
+
+#+RESULTS:
+| card_id | col_id | number |
+|---------+--------+--------|
+|       1 |      1 |     83 |
+|       1 |      2 |     86 |
+|       1 |      3 |      6 |
+|       1 |      4 |     31 |
+|       1 |      5 |     17 |
+|       1 |      6 |      9 |
+|       1 |      7 |     48 |
+|       1 |      8 |     53 |
+|       2 |      1 |     61 |
+|       2 |      2 |     30 |
+
+
+Find to count of your winning numbers for each card
+
+
+
+#+begin_src sqlite :db ./day04.db
+drop table if exists your_win_count;
+create table your_win_count as
+with cards(card_id) as (select distinct card_id from numbers_you_have),
+     card_counts(card_id, count) as
+         (select card_id as card_id, count(*) as count
+          from winning_numbers as wn
+                   join numbers_you_have as nyh
+                        using (card_id, number)
+          group by card_id)
+select card_id,
+       case
+           when count is null then 0
+           else count
+           end as count
+from cards
+         left join card_counts using (card_id)
+#+end_src
+
+#+RESULTS:
+
+#+begin_src sqlite :db ./day04.db :colnames yes :exports both
+  select * from your_win_count limit 10
+#+end_src
+
+#+RESULTS:
+| card_id | count |
+|---------+-------|
+|       1 |     4 |
+|       2 |     2 |
+|       3 |     2 |
+|       4 |     1 |
+|       5 |     0 |
+|       6 |     0 |
+
+
+* Part 1
+
+
+#+begin_src sqlite :db ./day04.db
+  select sum(1 << (count - 1)) from your_win_count
+#+end_src
+
+#+RESULTS:
+: 13
+
+
+* Part 2
+
+
+Find out which card cause copying of other cards
+
+#+begin_src sqlite :db ./day04.db
+  drop table if exists card_impacts;
+  create table card_impacts as     
+  select p.card_id as parent_card, l.card_id as child_card  from your_win_count l
+         join your_win_count p where l.card_id - p.card_id > 0 and l.card_id - p.card_id <= 10 limit 10
+#+end_src
+
+#+RESULTS:
+
+
+#+begin_src sqlite :db ./day04.db
+  select * from card_impacts limit 10
+#+end_src
+
+#+RESULTS:
+| 1 | 2 |
+| 1 | 3 |
+| 2 | 3 |
+| 1 | 4 |
+| 2 | 4 |
+| 3 | 4 |
+| 1 | 5 |
+| 2 | 5 |
+| 3 | 5 |
+| 4 | 5 |
+
+
+#+begin_src sqlite :db ./day04.db
+    with
+    card_counts_ungrouped(card_id, parent_id) as (
+  --    values (1, 1)
+      select distinct card_id, card_id as parent_id from numbers_you_have
+      union all
+      select child_card as card_id, parent_card as parent_id
+      from card_impacts join card_counts_ungrouped as parent on parent_card = card_id), 
+    card_counts(card_id, count) as (select card_id, count(*) from card_counts_ungrouped group by card_id)
+    select *  from card_counts 
+    --select * from card_counts_ungrouped where card_id = 5
+#+end_src
+
+#+RESULTS:
+| 1 |  1 |
+| 2 |  2 |
+| 3 |  4 |
+| 4 |  8 |
+| 5 | 16 |
+| 6 |  1 |
