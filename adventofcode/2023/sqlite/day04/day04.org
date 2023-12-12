@@ -1,6 +1,6 @@
 * Load input into sqlite
 
-#+begin_src awk :in-file ../../input/day04/small-input.txt
+#+begin_src awk :in-file ../../input/day04/input.txt
   BEGIN{
       row = 1
       printf "" > "winning_numbers.csv"
@@ -46,16 +46,16 @@ Load csv file into a table
 #+RESULTS:
 | card_id | col_id | number |
 |---------+--------+--------|
-|       1 |      3 |     41 |
-|       1 |      4 |     48 |
-|       1 |      5 |     83 |
-|       1 |      6 |     86 |
-|       1 |      7 |     17 |
-|       2 |      3 |     13 |
-|       2 |      4 |     32 |
-|       2 |      5 |     20 |
-|       2 |      6 |     16 |
-|       2 |      7 |     61 |
+|       1 |      3 |     34 |
+|       1 |      4 |     50 |
+|       1 |      5 |     18 |
+|       1 |      6 |     44 |
+|       1 |      7 |     19 |
+|       1 |      8 |     35 |
+|       1 |      9 |     47 |
+|       1 |     10 |     62 |
+|       1 |     11 |     65 |
+|       1 |     12 |     26 |
 
 #+begin_src sqlite :db ./day04.db
   drop table if exists numbers_you_have;	
@@ -73,16 +73,16 @@ Load csv file into a table
 #+RESULTS:
 | card_id | col_id | number |
 |---------+--------+--------|
-|       1 |      1 |     83 |
-|       1 |      2 |     86 |
-|       1 |      3 |      6 |
-|       1 |      4 |     31 |
-|       1 |      5 |     17 |
+|       1 |      1 |     63 |
+|       1 |      2 |      6 |
+|       1 |      3 |     27 |
+|       1 |      4 |     15 |
+|       1 |      5 |     60 |
 |       1 |      6 |      9 |
-|       1 |      7 |     48 |
-|       1 |      8 |     53 |
-|       2 |      1 |     61 |
-|       2 |      2 |     30 |
+|       1 |      7 |     98 |
+|       1 |      8 |      3 |
+|       1 |      9 |     61 |
+|       1 |     10 |     89 |
 
 
 Find to count of your winning numbers for each card
@@ -117,12 +117,16 @@ from cards
 #+RESULTS:
 | card_id | count |
 |---------+-------|
-|       1 |     4 |
-|       2 |     2 |
-|       3 |     2 |
+|       1 |     0 |
+|       2 |    10 |
+|       3 |     8 |
 |       4 |     1 |
-|       5 |     0 |
-|       6 |     0 |
+|       5 |    10 |
+|       6 |    10 |
+|       7 |    10 |
+|       8 |     5 |
+|       9 |    10 |
+|      10 |    10 |
 
 
 * Part 1
@@ -133,58 +137,70 @@ from cards
 #+end_src
 
 #+RESULTS:
-: 13
+: 23678
 
 
 * Part 2
 
 
-Find out which card cause copying of other cards
+Find out which card  copying of other cards
 
 #+begin_src sqlite :db ./day04.db
   drop table if exists card_impacts;
   create table card_impacts as     
   select p.card_id as parent_card, l.card_id as child_card  from your_win_count l
-         join your_win_count p where l.card_id - p.card_id > 0 and l.card_id - p.card_id <= 10 limit 10
+         join your_win_count p where l.card_id >  p.card_id  and l.card_id <=  p.card_id + p.count
 #+end_src
 
 #+RESULTS:
 
 
-#+begin_src sqlite :db ./day04.db
-  select * from card_impacts limit 10
+#+begin_src sqlite :db ./day04.db  :colnames yes :exports both
+  select * from card_impacts  order by parent_card limit 10
 #+end_src
 
 #+RESULTS:
-| 1 | 2 |
-| 1 | 3 |
-| 2 | 3 |
-| 1 | 4 |
-| 2 | 4 |
-| 3 | 4 |
-| 1 | 5 |
-| 2 | 5 |
-| 3 | 5 |
-| 4 | 5 |
+| parent_card | child_card |
+|-------------+------------|
+|           2 |          3 |
+|           2 |          4 |
+|           2 |          5 |
+|           2 |          6 |
+|           2 |          7 |
+|           2 |          8 |
+|           2 |          9 |
+|           2 |         10 |
+|           2 |         11 |
+|           2 |         12 |
 
 
-#+begin_src sqlite :db ./day04.db
-    with
-    card_counts_ungrouped(card_id, parent_id) as (
-  --    values (1, 1)
-      select distinct card_id, card_id as parent_id from numbers_you_have
-      union all
-      select child_card as card_id, parent_card as parent_id
-      from card_impacts join card_counts_ungrouped as parent on parent_card = card_id), 
-    card_counts(card_id, count) as (select card_id, count(*) from card_counts_ungrouped group by card_id)
-    select *  from card_counts 
-    --select * from card_counts_ungrouped where card_id = 5
+#+begin_src sqlite :db ./day04.db   :colnames yes :exports both
+  with cards(card_id) as (select distinct card_id
+                          from numbers_you_have
+                          order by card_id),
+       card_counts_ungrouped(card_id) as (select card_id
+                                                 from cards
+                                                 union all
+                                                 select child_card as card_id
+                                                 from card_counts_ungrouped
+                                                          join card_impacts on parent_card = card_id
+                                                 order by card_id),
+       card_counts(card_id, count) as (select card_id, count(*) from card_counts_ungrouped group by card_id)
+       sum_counts(count) as (select sum(count) from card_counts)
+  select count as Result
+  from sum_counts
 #+end_src
 
 #+RESULTS:
-| 1 |  1 |
-| 2 |  2 |
-| 3 |  4 |
-| 4 |  8 |
-| 5 | 16 |
-| 6 |  1 |
+| card_id | count |
+|---------+-------|
+|       1 |     1 |
+|       2 |     1 |
+|       3 |     2 |
+|       4 |     4 |
+|       5 |     8 |
+|       6 |    12 |
+|       7 |    24 |
+|       8 |    48 |
+|       9 |    96 |
+|      10 |   192 |
