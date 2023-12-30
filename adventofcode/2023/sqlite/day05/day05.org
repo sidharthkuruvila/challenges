@@ -1,0 +1,348 @@
+* Load input into sqlite
+
+#+begin_src awk :in-file ../../input/day05/input.txt
+  BEGIN{
+      section = "seeds"
+      map_id = 0
+      row = 1
+      printf "" > "seeds_part_1.csv"
+      printf "" > "seeds_part_2.csv"
+      printf "" > "maps.csv"
+      map_lines = false
+  }
+
+  $1 == "seeds:" {
+      seed_id = 1;
+      for(i = 2; i <= NF; i++) {
+          print seed_id","$i >> "seeds_part_1.csv"
+          seed_id+=1
+      }
+
+      seed_id = 1;
+      for(i = 2; i <= NF; i+=2) {
+          print seed_id","$i","$(i+1) >> "seeds_part_2.csv"
+          seed_id+=1
+      }      
+      next
+  }
+
+  $2 == "map:"   {
+      map_id +=1
+      map_lines = true
+      next
+  }
+
+  NF == 0 {
+      map_lines = false
+      next
+  }
+
+  map_lines == true {
+      print row","map_id","$1","$2","$3 >> "maps.csv"
+      row+=1
+  }
+
+
+
+
+#+end_src
+
+#+RESULTS:
+
+Load csv file into a table
+
+#+begin_src sqlite :db ./day05.db
+  drop table if exists seeds_part_1;	
+  create table seeds_part_1(seed_id int, n int);
+  .mode csv seeds_part_1
+  .import seeds_part_1.csv seeds_part_1
+#+end_src
+
+#+RESULTS:
+
+#+begin_src sqlite :db ./day05.db :colnames yes :exports both
+  select * from seeds_part_1 limit 10
+#+end_src
+
+#+RESULTS:
+| seed_id |          n |
+|---------+------------|
+|       1 | 2494933545 |
+|       2 |  159314859 |
+|       3 | 4045092792 |
+|       4 |  172620202 |
+|       5 |  928898138 |
+|       6 |  554061882 |
+|       7 | 2740120981 |
+|       8 |   81327018 |
+|       9 | 2031777983 |
+|      10 |   63513119 |
+
+#+begin_src sqlite :db ./day05.db
+  drop table if exists seeds_part_2;	
+  create table seeds_part_2(seed_id int, start int, length int);
+  .mode csv seeds_part_2
+  .import seeds_part_2.csv seeds_part_2
+#+end_src
+
+#+RESULTS:
+
+#+begin_src sqlite :db ./day05.db :colnames yes :exports both
+  select * from seeds_part_2 limit 10
+#+end_src
+
+#+RESULTS:
+| seed_id |      start |    length |
+|---------+------------+-----------|
+|       1 | 2494933545 | 159314859 |
+|       2 | 4045092792 | 172620202 |
+|       3 |  928898138 | 554061882 |
+|       4 | 2740120981 |  81327018 |
+|       5 | 2031777983 |  63513119 |
+|       6 | 2871914181 | 270575980 |
+|       7 | 2200250633 | 216481794 |
+|       8 | 3289604059 |  25147787 |
+|       9 | 3472625834 |  10030240 |
+|      10 |  260990830 | 232636388 |
+
+#+begin_src sqlite :db ./day05.db
+  drop table if exists maps;	
+  create table maps(row_id int, map_id int, dest int, src int, width int);
+  .mode csv maps
+  .import maps.csv maps
+#+end_src
+
+#+RESULTS:
+
+#+begin_src sqlite :db ./day05.db :colnames yes :exports both
+  select * from maps limit 10
+#+end_src
+
+#+RESULTS:
+| row_id | map_id |       dest |        src |      width |
+|--------+--------+------------+------------+------------|
+|      1 |      1 | 3272284283 | 2724782980 | 1022683013 |
+|      2 |      1 |  138187491 | 4195038636 |   99928660 |
+|      3 |      1 | 2359623759 |  797621236 |  127984779 |
+|      4 |      1 |  662451929 | 2224466386 |  266466256 |
+|      5 |      1 |  928918185 |  714355413 |   83265823 |
+|      6 |      1 | 1012184008 | 3891516474 |  303522162 |
+|      7 |      1 | 3063776460 | 1098322140 |  208507823 |
+|      8 |      1 | 2194238166 | 1306829963 |   50525692 |
+|      9 |      1 |  357106588 | 2091837170 |  132629216 |
+|     10 |      1 | 2244763858 | 2490932642 |  114859901 |
+
+
+* Part 1
+
+
+#+begin_src sqlite :db ./day05.db
+  with	
+      final_map(map_id) as (select max(map_id) from maps),
+      apply_maps(map_id, seed_id, n) as (
+          select 0, seed_id, n from seeds_part_1
+          union
+          select apply_maps.map_id + 1,
+             seed_id,
+             case when (maps.map_id is null) then n
+             else (n - src) + dest end as n
+             from apply_maps
+             left join maps on maps.map_id = (apply_maps.map_id + 1) and src <= n and n < src + width
+             join final_map on apply_maps.map_id <= final_map.map_id + 1)
+      select min(n) from apply_maps join final_map on (final_map.map_id = apply_maps.map_id )
+#+end_src
+
+#+RESULTS:
+: 165788812
+
+
+* Part 2
+
+
+
+
+
+The seed ranges table contains the first and last seed number in each range of seeds.
+
+
+#+begin_src sqlite :db ./day05.db
+drop table if exists seeds_range;
+create table seeds_range as
+with seed_range(seed_id, first, last) as
+         (select seed_id, start, start + length
+          from seeds_part_2)
+select *
+from seed_range
+#+end_src
+
+#+RESULTS:
+
+#+begin_src sqlite :db ./day05.db :colnames yes :exports both
+  select * from seeds_range limit 3
+#+end_src
+
+#+RESULTS:
+| seed_id |      first |       last |
+|---------+------------+------------|
+|       1 | 2494933545 | 2654248404 |
+|       2 | 4045092792 | 4217712994 |
+|       3 |  928898138 | 1482960020 |
+
+
+Each row  in the maps range contains a range to look for and a diff value that can be added to convert from the source range to the destination range.
+
+#+begin_src sqlite :db ./day05.db
+  drop table if exists maps_range;
+  create table maps_range as
+  with
+          maps_range(map_id, row_id, first, last, diff) as (select map_id, row_id, src, src + width - 1, dest - src from  maps)
+          select * from maps_range
+#+end_src
+
+#+RESULTS:
+
+
+#+begin_src sqlite :db ./day05.db :colnames yes :exports both
+  select * from maps_range where map_id = 1
+#+end_src
+
+#+RESULTS:
+| map_id | row_id |      first |       last |        diff |
+|--------+--------+------------+------------+-------------|
+|      1 |      1 | 2724782980 | 3747465992 |   547501303 |
+|      1 |      2 | 4195038636 | 4294967295 | -4056851145 |
+|      1 |      3 |  797621236 |  925606014 |  1562002523 |
+|      1 |      4 | 2224466386 | 2490932641 | -1562014457 |
+|      1 |      5 |  714355413 |  797621235 |   214562772 |
+|      1 |      6 | 3891516474 | 4195038635 | -2879332466 |
+|      1 |      7 | 1098322140 | 1306829962 |  1965454320 |
+|      1 |      8 | 1306829963 | 1357355654 |   887408203 |
+|      1 |      9 | 2091837170 | 2224466385 | -1734730582 |
+|      1 |     10 | 2490932642 | 2605792542 |  -246168784 |
+|      1 |     11 | 3747465993 | 3891516473 | -1697278308 |
+|      1 |     12 |  925606015 | 1098322139 |  -435870211 |
+|      1 |     13 |  138187491 |  714355412 |  2349421047 |
+|      1 |     14 | 2605792543 | 2724782979 | -2367676392 |
+|      1 |     15 | 1357355655 | 2091837169 |   -41649485 |
+
+
+
+#+begin_src sqlite :db ./day05.db
+      drop view if exists  empty_gaps;
+      create view  empty_gaps as
+      with maps_range_sorted(row_id, map_id, first, last, diff) as
+         (select row_number() over (order by map_id, first),
+                 map_id,
+                 first,
+                 last,
+                 diff
+          from maps_range
+          order by map_id, first),
+     first_gap(map_id, first, last, diff) as
+         (select map_id, -10000000, min(first), 0 from maps_range group by map_id),
+     last_gap(map_id, first, last, diff) as
+         (select map_id, max(last), 10000000, 0 from maps_range group by map_id),
+     in_betweens(map_id, first, last, diff) as
+         (select m1.map_id, m1.last + 1 as first, m2.first - 1 as last, 0 as diff
+          from maps_range_sorted as m1
+                   join maps_range_sorted as m2
+                        on m1.map_id = m2.map_id and m1.row_id + 1 = m2.row_id
+          where m2.first - m1.last > 1),
+     empty_gaps(map_id, first, last, diff) as
+         (select *
+          from first_gap
+          union
+          select *
+          from in_betweens
+          union
+          select *
+          from last_gap)
+  select *
+  from empty_gaps
+#+end_src
+
+#+RESULTS:
+
+
+#+begin_src sqlite :db ./day05.db :colnames yes :exports both
+  select * from empty_gaps
+#+end_src
+
+#+RESULTS:
+| map_id |      first |       last | diff |
+|--------+------------+------------+------|
+|      1 |  -10000000 |  138187491 |    0 |
+|      1 | 4294967295 |   10000000 |    0 |
+|      2 |  -10000000 |  733063720 |    0 |
+|      2 | 1064314445 | 2030756624 |    0 |
+|      2 | 4294967295 |   10000000 |    0 |
+|      3 |  -10000000 |          0 |    0 |
+|      3 | 1131125243 | 1226966400 |    0 |
+|      3 | 4294967295 |   10000000 |    0 |
+|      4 |  -10000000 |  357109336 |    0 |
+|      4 |  563488212 |  751267411 |    0 |
+|      4 | 4294967295 |   10000000 |    0 |
+|      5 |  -10000000 |          0 |    0 |
+|      5 |  330707855 |  457330728 |    0 |
+|      5 | 4294967295 |   10000000 |    0 |
+|      6 |  -10000000 |          0 |    0 |
+|      6 | 1878706609 | 2226309991 |    0 |
+|      6 | 4294967295 |   10000000 |    0 |
+|      7 |  -10000000 |          0 |    0 |
+|      7 | 2046024003 | 2940386870 |    0 |
+|      7 | 4294967295 |   10000000 |    0 |
+
+
+#+begin_src sqlite :db ./day05.db
+  drop view if exists  complete_maps;
+  create view  complete_maps as
+         select * from empty_gaps
+         union
+         select map_id, first, last, diff from maps_range
+  #+end_src      
+
+  #+RESULTS:
+
+#+begin_src sqlite :db ./day05.db :colnames yes :exports both
+  select * from  complete_maps limit 10
+#+end_src
+
+#+RESULTS:
+| map_id |      first |       last |        diff |
+|--------+------------+------------+-------------|
+|      1 |  -10000000 |  138187491 |           0 |
+|      1 |  138187491 |  714355412 |  2349421047 |
+|      1 |  714355413 |  797621235 |   214562772 |
+|      1 |  797621236 |  925606014 |  1562002523 |
+|      1 |  925606015 | 1098322139 |  -435870211 |
+|      1 | 1098322140 | 1306829962 |  1965454320 |
+|      1 | 1306829963 | 1357355654 |   887408203 |
+|      1 | 1357355655 | 2091837169 |   -41649485 |
+|      1 | 2091837170 | 2224466385 | -1734730582 |
+|      1 | 2224466386 | 2490932641 | -1562014457 |
+  
+  #+begin_src sqlite :db ./day05.db
+ with
+    final_map(map_id) as (select max(map_id) from maps),
+    apply_maps(map_id, first, last) as
+         (select 0, first, last
+          from seeds_range
+          union
+          select complete_maps.map_id,
+                 case
+                     when complete_maps.first <= apply_maps.first then apply_maps.first
+                     else complete_maps.first
+                     end + complete_maps.diff,
+                 case
+                     when complete_maps.last >= apply_maps.last then apply_maps.last
+                     else complete_maps.last
+                     end + complete_maps.diff
+          from apply_maps
+                   join complete_maps on apply_maps.map_id + 1 = complete_maps.map_id
+              and ((complete_maps.first <= apply_maps.first and apply_maps.first <= complete_maps.last)
+                  or (complete_maps.first <= apply_maps.last and apply_maps.last <= complete_maps.last)))
+select min(first) from apply_maps join final_map on (final_map.map_id = apply_maps.map_id )
+#+end_src
+
+#+RESULTS:
+: 1928058
