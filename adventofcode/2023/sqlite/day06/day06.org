@@ -56,7 +56,7 @@ Load csv file into a table
 
 * Part 1
 
-#+begin_src gnuplot :file output.png
+#+begin_src gnuplot :file output.png  :exports both
     reset
     time = 7
     distance = 9
