@@ -1,0 +1,162 @@
+* Load input into sqlite
+
+#+begin_src awk :in-file ../../input/day06/input.txt  :results value file :file races.csv
+  BEGIN{
+      FS = "[[:blank:]]+"
+      c=0;
+  }
+
+
+  $1 == "Time:" {
+      for(i = 2; i<=NF;i++) {
+          times[i-1] = $i
+      }
+  }
+
+  $1 == "Distance:" {
+      for(i = 2; i<=NF;i++){
+          distances[i-1] = $i
+      }
+      len = NF-1;
+  }
+
+  END {
+      for(i=1;i<=len;i++){
+          print times[i]","distances[i]
+      }
+  }
+#+end_src
+
+#+RESULTS:
+[[file:races.csv]]
+
+Load csv file into a table
+
+#+begin_src sqlite :db ./day06.db
+  drop table if exists races;	
+  create table races(time int, distance int);
+  .mode csv races
+  .import races.csv races
+#+end_src
+
+#+RESULTS:
+
+#+begin_src sqlite :db ./day06.db :colnames yes :exports both
+  select * from races limit 10
+#+end_src
+
+#+RESULTS:
+| time | distance |
+|------+----------|
+|   60 |      475 |
+|   94 |     2138 |
+|   78 |     1015 |
+|   82 |     1650 |
+
+
+* Part 1
+
+#+begin_src gnuplot :file output.png
+    reset
+    time = 7
+    distance = 9
+    a = 1
+    b = -time
+    c = distance
+    rt = sqrt(b*b - 4* a *c)
+    x1 = (-b - rt) / (2*a)
+    x2 = (-b +rt) / (2*a)
+
+    f(x) = (7 * x - x*x )
+    g(x) = 9
+
+    set arrow from x1,-1000 to x1,1000 nohead lc rgb 'red'
+    set arrow from x2,-1000 to x2,1000 nohead lc rgb 'red'
+
+    plot [0:7] f(x) title "7x - x^2", g(x) title "Distance = 9"
+
+#+end_src
+
+#+RESULTS:
+[[file:output.png]]
+
+
+First find out the speed the boat would need to travel to make the target distance.
+
+tb - Time spent holding the button down
+tm - Time spent moving
+s - Speed while moving
+
++ $time = tm + tb$
++ $s = tb$
++ $distance = s  \times tm$
++ $distance = tb  \times (time - tb)$
++ $distance = tb  \times time - tb^2$
++ $tb^2 - tb \times time + distance = 0$
+
+Using the quadratic formula to solve the quation $ax^2 + bx + c = 0$
+
+\begin{equation}    
+x = \dfrac{-b \pm \sqrt{b^2 - 4ac}}{ 2a } 
+\end{equation}
+
++ x = tb
++ a = 1
++ b = -time
++ c = distance
+
+\begin{equation}    
+tb= \dfrac{time \pm \sqrt{time^2 +4 \times distance}}{ 2 } 
+\end{equation}  
+
+The equavalemt code in ocaml
+
+#+begin_src ocaml
+  let solve a b c =
+    let e = ((b *. b) -. 4. *. a *. c) in
+    if Float.(e < 0.) then None
+    else
+      let rt = Float.sqrt e in
+      let x1 = (-.b +. rt)/.(2. *. a) in
+      let x2 = (-.b -. rt)/.(2. *. a) in
+      Some(x1, x2)
+#+end_src
+
+#+RESULTS:
+: <fun>
+
+
+#+begin_src sqlite :db ./day06.db :colnames yes :exports both
+  with
+          equations(a, b, c) as (select 1, -time, distance - 0.000001 from races),
+          intermediate(rt, a, b) as (select sqrt((b*b) - 4 * a *c), a, b from equations),
+          solutions(x1, x2) as (select (-b - rt)/(2*a), (-b + rt)/(2*a) from intermediate),
+          winning_race_counts(c) as(select cast(floor(x2) - ceil(x1) + 1 as int)  from solutions)
+          select c as Results from winning_race_counts
+#+end_src
+
+#+RESULTS:
+| Results |
+|---------|
+|      41 |
+|      17 |
+|      45 |
+|      11 |
+
+
+* Part 2
+
+#+begin_src sqlite :db ./day06.db :colnames yes :exports both
+  with
+          race(time, distance) as (select group_concat(time, ''), group_concat(distance, '') from races),
+          equations(a, b, c) as (select 1, -time, distance - 0.000001 from race),
+          intermediate(rt, a, b) as (select sqrt((b*b) - 4 * a *c), a, b from equations),
+          solutions(x1, x2) as (select (-b - rt)/(2*a), (-b + rt)/(2*a) from intermediate),
+          winning_race_counts(c) as(select cast(floor(x2) - ceil(x1) + 1 as int)  from solutions)
+          select c as Results from winning_race_counts
+#+end_src
+
+#+RESULTS:
+|  Results |
+|----------|
+| 42588603 |
