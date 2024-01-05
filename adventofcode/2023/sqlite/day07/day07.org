@@ -1,0 +1,519 @@
+* Load input into sqlite
+
+#+begin_src ocaml
+  #require "core";;
+  open Core
+#+end_src
+
+#+RESULTS:
+
+
+#+begin_src awk :in-file ../../input/day07/input.txt 
+  BEGIN{
+      hand_id = 1
+      printf "" > "bids.csv"
+      printf "" > "hands.csv"
+  }
+
+  {
+      hand = $1
+      bid = $2
+      print hand_id","bid >> "bids.csv"
+      for(i = 1; i<=length(hand); i++){
+          print hand_id","i","substr(hand, i, 1) >> "hands.csv"
+      }
+      hand_id++;
+  }
+#+end_src
+
+#+RESULTS:
+
+Load csv file into a table
+
+#+begin_src sqlite :db ./day07.db
+  drop table if exists bids;	
+  create table bids(hand int, bid int);
+  .mode csv bids
+  .import bids.csv bids
+#+end_src
+
+#+RESULTS:
+
+#+begin_src sqlite :db ./day07.db :colnames yes :exports both
+  select * from bids limit 10
+#+end_src
+
+#+RESULTS:
+| hand | bid |
+|------+-----|
+|    1 | 501 |
+|    2 | 849 |
+|    3 | 166 |
+|    4 | 667 |
+|    5 |  35 |
+|    6 | 997 |
+|    7 | 151 |
+|    8 | 142 |
+|    9 | 566 |
+|   10 | 297 |
+
+
+#+begin_src sqlite :db ./day07.db
+  drop table if exists hands;	
+  create table hands(hand int, card_id int, card string);
+  .mode csv hands
+  .import hands.csv hands
+#+end_src
+
+#+RESULTS:
+
+#+begin_src sqlite :db ./day07.db :colnames yes :exports both
+  select * from hands limit 20
+#+end_src
+
+#+RESULTS:
+| hand | card_id | card |
+|------+---------+------|
+|    1 |       1 |    8 |
+|    1 |       2 |    8 |
+|    1 |       3 |    7 |
+|    1 |       4 |    8 |
+|    1 |       5 |    8 |
+|    2 |       1 |    9 |
+|    2 |       2 |    9 |
+|    2 |       3 |    9 |
+|    2 |       4 |    2 |
+|    2 |       5 |    9 |
+|    3 |       1 |    J |
+|    3 |       2 |    8 |
+|    3 |       3 |    7 |
+|    3 |       4 |    8 |
+|    3 |       5 |    7 |
+|    4 |       1 |    8 |
+|    4 |       2 |    7 |
+|    4 |       3 |    8 |
+|    4 |       4 |    T |
+|    4 |       5 |    7 |
+
+
+#+begin_src sqlite :db ./day07.db
+  drop table if exists hand_labels;	
+  create table hand_labels as
+  with hand_labels(hand, label) as (select hand, group_concat(card, '') from hands group by hand)
+       select * from hand_labels
+#+end_src
+
+#+RESULTS:
+
+#+begin_src sqlite :db ./day07.db :colnames yes :exports both
+  select * from hand_labels limit 10
+#+end_src
+
+#+RESULTS:
+| hand | label |
+|------+-------|
+|    1 | 88788 |
+|    2 | 99929 |
+|    3 | J8787 |
+|    4 | 878T7 |
+|    5 | 2J957 |
+|    6 | AQAA2 |
+|    7 | T6QQ5 |
+|    8 | 84TJ9 |
+|    9 | AT938 |
+|   10 | A4AK7 |
+
+
+
+* Part 1
+
+Construct a score that can be used to sort the hands.
+
+
+
+Each card has a value associated with it
+
+
+#+begin_src ocaml
+  let cards = ['2'; '3'; '4'; '5'; '6'; '7'; '8'; '9'; 'T'; 'J'; 'Q'; 'K'; 'A'];;
+  let card_values = List.mapi cards ~f:(fun i c -> (c, i)) |> Char.Map.of_alist_exn
+
+#+end_src
+
+#+RESULTS:
+: <abstr>
+
+
+
+#+begin_src sqlite :db ./day07.db
+  drop table if exists card_values;	
+  create table card_values as
+  with
+          cards(card) as (values ('2'), ('3'), ('4'), ('5'), ('6'), ('7'), ('8'), ('9'), ('T'), ('J'), ('Q'), ('K'), ('A')),
+  card_values(card, value) as (select card, row_number () over () - 1 from cards)
+  select * from card_values
+#+end_src
+
+#+RESULTS:
+
+
+#+begin_src sqlite :db ./day07.db :colnames yes :exports both
+  select * from card_values
+#+end_src
+
+#+RESULTS:
+| card | value |
+|------+-------|
+|    2 |     0 |
+|    3 |     1 |
+|    4 |     2 |
+|    5 |     3 |
+|    6 |     4 |
+|    7 |     5 |
+|    8 |     6 |
+|    9 |     7 |
+|    T |     8 |
+|    J |     9 |
+|    Q |    10 |
+|    K |    11 |
+|    A |    12 |
+
+
+#+begin_src sqlite :db ./day07.db
+      drop table if exists card_counts;	
+      create table card_counts as 
+      with counts(hand, card, count) as (select hand, card, count(*) from hands group by hand, card)
+      select * from counts
+#+end_src
+
+#+RESULTS:
+
+#+begin_src sqlite :db ./day07.db :colnames yes :exports both
+  select * from card_counts limit 20
+#+end_src
+
+#+RESULTS:
+| hand | card | count |
+|------+------+-------|
+|    1 |    7 |     1 |
+|    1 |    8 |     4 |
+|    2 |    2 |     1 |
+|    2 |    9 |     4 |
+|    3 |    7 |     2 |
+|    3 |    8 |     2 |
+|    3 |    J |     1 |
+|    4 |    7 |     2 |
+|    4 |    8 |     2 |
+|    4 |    T |     1 |
+|    5 |    2 |     1 |
+|    5 |    5 |     1 |
+|    5 |    7 |     1 |
+|    5 |    9 |     1 |
+|    5 |    J |     1 |
+|    6 |    2 |     1 |
+|    6 |    A |     3 |
+|    6 |    Q |     1 |
+|    7 |    5 |     1 |
+|    7 |    6 |     1 |
+
+
+** Calculate a score that can be used to order the hands
+
+*** Shape Score
+
+| Hand            | Counts    | Score | Calculation           |
+|-----------------+-----------+-------+-----------------------|
+| Five of a kind  | 5         |    25 | 5*5                   |
+| Four of a kind  | 4,1       |    17 | 4^2 + 1^2             |
+| Full house      | 3,2       |    13 | 3^2+ 2^2              |
+| Three of a kind | 3,1,1     |    11 | 3^2 + 1^2 + 1^2       |
+| Two pair        | 2,2,1     |     9 | 2^2 + 2^2 + 1^2       |
+| One pair        | 2,1,1,1   |     7 | 2^2 + 1^2 + 1^2 + 1^2 |
+| High card       | 1,1,1,1,1 |     5 |                       |
+
+#+begin_src ocaml
+  let shape_score cards =
+    let hand_length = String.length cards in
+    String.to_list cards
+    |> List.sort ~compare:Char.compare
+    |> List.group ~break:(fun a b -> Char.(a <> b))
+    |> List.map ~f:(fun l -> (List.length l))
+    |> List.fold ~init:0 ~f:(fun acc n -> n * n + acc)
+#+end_src
+
+#+RESULTS:
+: <fun>
+
+#+begin_src sqlite :db ./day07.db
+  drop table if exists shape_score;
+  create table shape_score as
+  with
+         shape_score(hand, score) as (select hand, sum(count * count) from card_counts group by hand)
+  select * from shape_score
+#+end_src
+
+#+RESULTS:
+
+
+#+begin_src sqlite :db ./day07.db :colnames yes :exports both
+          select label, score from shape_score  join hand_labels using (hand) limit 10
+#+end_src
+
+#+RESULTS:
+| label | score |
+|-------+-------|
+| 88788 |    17 |
+| 99929 |    17 |
+| J8787 |     9 |
+| 878T7 |     9 |
+| 2J957 |     5 |
+| AQAA2 |    11 |
+| T6QQ5 |     7 |
+| 84TJ9 |     5 |
+| AT938 |     5 |
+| A4AK7 |     7 |
+
+*** Cards Score
+A cards score can be found by treating the hand as a base number of cards number
+
+#+begin_src ocaml
+  let cards_score hand =
+    let base = List.length cards in
+    String.to_list hand
+    |> List.rev
+    |> List.foldi ~init:0 ~f:(fun i acc c -> Int.pow base i * (Char.Map.find_exn card_values c) + acc)
+#+end_src
+
+#+RESULTS:
+: <fun>
+
+#+begin_src sqlite :db ./day07.db
+  drop table if exists cards_score;
+  create table cards_score as
+  with
+          card_count(base) as (select count(*) from card_values),
+         cards_score(hand, score) as (select hand, sum(value*(pow(base, 5 - card_id) )) from hands join card_values using(card) join card_count group by hand)
+  select * from cards_score
+#+end_src
+
+#+RESULTS:
+
+
+
+
+#+begin_src sqlite :db ./day07.db :colnames yes :exports both
+          select label, score from cards_score  join hand_labels using (hand) limit 10
+#+end_src
+
+#+RESULTS:
+| label |    score |
+|-------+----------|
+| 88788 | 185477.0 |
+| 99929 | 216496.0 |
+| J8787 | 271159.0 |
+| 878T7 | 183474.0 |
+| 2J957 |  21000.0 |
+| AQAA2 | 366886.0 |
+| T6QQ5 | 239099.0 |
+| 84TJ9 | 177236.0 |
+| AT938 | 361510.0 |
+| A4AK7 | 349302.0 |
+
+
+*** Calculate a total score
+
+#+begin_src ocaml
+  let hand_score hand =
+    let hand_length = String.length hand in
+    let card_count = List.length cards in
+    shape_score hand * Int.pow card_count hand_length + cards_score hand
+#+end_src
+
+#+RESULTS:
+: <fun>
+
+
+#+begin_src sqlite :db ./day07.db
+  drop table if exists hand_score;
+  create table hand_score as
+         with
+         card_count(c) as (select count(*) from card_values),
+         hand_score(hand, score) as (select hand, shape_score.score*pow(card_count.c, 5) + cards_score.score from
+         shape_score join cards_score using(hand)
+         join card_count)
+  select * from hand_score order by score
+#+end_src
+
+#+RESULTS:
+
+#+begin_src sqlite :db ./day07.db :colnames yes :exports both
+   select * from hand_labels join hand_score using(hand) order by score limit 10
+#+end_src
+
+#+RESULTS:
+| hand | label |     score |
+|------+-------+-----------|
+|  298 | 2635T | 1865469.0 |
+|  493 | 278T9 | 1868575.0 |
+|  566 | 29K68 | 1873761.0 |
+|    5 | 2J957 | 1877465.0 |
+|  280 | 2Q435 | 1878789.0 |
+|  788 | 2KT39 | 1882004.0 |
+|  791 | 2KQ98 | 1882419.0 |
+|  130 | 2A3Q5 | 1883131.0 |
+|  213 | 328KJ | 1886192.0 |
+|  335 | 349QT | 1890741.0 |
+
+
+#+begin_src sqlite :db ./day07.db :colnames yes :exports both
+  with
+          winnings(hand, row, bid, winning) as (select hand,  row_number() over (), bid,row_number() over () * bid from hand_score
+         join bids using(hand))
+         select sum(winning) as Result from winnings
+#+end_src
+
+#+RESULTS:
+|    Result |
+|-----------|
+| 250370104 |
+
+* Part 2
+
+The J card's score value is the lowest
+
+#+begin_src sqlite :db ./day07.db
+  drop table if exists card_values_2;	
+  create table card_values_2 as
+  with
+         -- cards(card) as (values ('A'), ('K'), ('Q'), ('J'), ('T'), ('9'), ('8'), ('7'), ('6'), ('5'), ('4'), ('3'), ('2')),
+          cards(card) as (values ('J'), ('2'), ('3'), ('4'), ('5'), ('6'), ('7'), ('8'), ('9'), ('T'), ('Q'), ('K'), ('A')),
+  card_values(card, value) as (select card, row_number () over () - 1 from cards)
+  select * from card_values
+#+end_src
+
+#+RESULTS:
+
+The J needs to be treated differently when calculating the shape score.
+
+Split the card counts into three, the j card, one of the cards with the highes count other than the j card, the counts of remaining cards. 
+
+
+#+begin_src sqlite :db ./day07.db
+  drop table if exists shape_score_2;
+  create table shape_score_2 as
+  with j_cards(hand, count) as
+         (select hand, count
+          from card_counts
+          where card = 'J'),
+     not_j_cards(hand, card, count) as
+         (select hand, card, count
+          from card_counts
+          where card != 'J'),
+     max_count(hand, count) as
+         (select hand, max(count)
+          from not_j_cards
+          group by hand),
+     max_count_card(hand, card) as
+         (select hand, card
+          from not_j_cards
+                   join max_count using (hand, count)
+          group by hand),
+     remaining_card_counts(hand, count) as
+         (select hand, count
+          from not_j_cards
+                   join max_count_card using (hand)
+          where not_j_cards.card != max_count_card.card),
+     new_card_counts(hand, count) as
+         (select hand,
+                 case when max_count.count is null then 0 else max_count.count end +
+                 case when j_cards.count is null then 0 else j_cards.count end
+          from max_count
+                   full outer join j_cards using (hand)
+          union all
+          select hand, count
+          from remaining_card_counts),
+
+     shape_score(hand, score) as
+             (select hand, sum(count * count) from new_card_counts group by hand)
+select *
+from shape_score
+
+#+end_src
+
+#+RESULTS:
+
+#+begin_src sqlite :db ./day07.db :colnames yes :exports both
+  select * from shape_score_2 join hand_labels using(hand) order by score limit 10
+#+end_src
+
+#+RESULTS:
+| hand | score | label |
+|------+-------+-------|
+|    9 |     5 | AT938 |
+|   23 |     5 | 47QT6 |
+|   25 |     5 | Q2K5T |
+|   34 |     5 | T6974 |
+|   35 |     5 | KA396 |
+|   37 |     5 | 73629 |
+|   45 |     5 | K4879 |
+|   50 |     5 | 9K476 |
+|   62 |     5 | Q27T3 |
+|   74 |     5 | AQ853 |
+
+
+The card score is calculated the same way as part 1 except for the value of each card.
+
+#+begin_src sqlite :db ./day07.db
+  drop table if exists cards_score_2;
+  create table cards_score_2 as
+  with
+          card_count(base) as (select count(*) from card_values_2),
+         cards_score(hand, score) as (select hand, sum(value*(pow(base, 5 - card_id) )) from hands join card_values_2 using(card) join card_count group by hand)
+  select * from cards_score
+#+end_src
+
+#+RESULTS:
+
+#+begin_src sqlite :db ./day07.db :colnames yes :exports both
+  select * from cards_score_2 join hand_labels using(hand) order by score limit 10
+#+end_src
+
+#+RESULTS:
+| hand |  score | label |
+|------+--------+-------|
+|  492 |    0.0 | JJJJJ |
+|  753 |  123.0 | JJJT7 |
+|  246 |  513.0 | JJ4J7 |
+|  769 |  732.0 | JJ555 |
+|  356 | 1183.0 | JJ8JJ |
+|  132 | 1291.0 | JJ895 |
+|  865 | 1455.0 | JJ98A |
+|  638 | 1830.0 | JJQQQ |
+|  386 | 1875.0 | JJK24 |
+|  824 | 2384.0 | J2226 |
+
+#+begin_src sqlite :db ./day07.db
+  drop table if exists hand_score_2;
+  create table hand_score_2 as
+         with
+         card_count(c) as (select count(*) from card_values_2),
+         hand_score(hand, score) as (select hand, shape_score_2.score*pow(card_count.c, 5) + cards_score_2.score from
+         shape_score_2 join cards_score_2 using(hand)
+         join card_count)
+  select * from hand_score order by score
+#+end_src
+
+#+RESULTS:
+
+
+#+begin_src sqlite :db ./day07.db :colnames yes :exports both
+  with
+          winnings(hand, row, bid, winning) as (select hand,  row_number() over (), bid,row_number() over () * bid from hand_score_2
+         join bids using(hand))
+         select sum(winning) as Result from winnings
+#+end_src
+
+#+RESULTS:
+|    Result |
+|-----------|
+| 251735672 |
