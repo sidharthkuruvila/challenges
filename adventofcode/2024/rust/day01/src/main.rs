@@ -32,5 +32,43 @@ fn main() {
             }
         }
     }
-    println!("Part 2: {}", total);
+    println!("Part 2, n^2: {}", total);
+
+    let groupeda = group(&alist);
+    let groupedb = group(&blist);
+    let mut ai = 0;
+    let mut bi = 0;
+    let mut total: u32 = 0;
+    while ai < groupeda.len() && bi < groupedb.len() {
+        let (numa, ca) = groupeda[ai];
+        let (numb, cb) = groupedb[bi];
+        if numa == numb {
+            total += numa*ca*cb;
+            ai += 1;
+            bi += 1;
+        }else if numa < numb {
+            ai += 1;
+        }else if numa > numb {
+            bi += 1;
+        }
+    }
+    println!("Part 2, n lg n: {}", total);
+
+}
+
+fn group(v: &Vec<u32>) -> Vec<(u32, u32)> {
+    let mut grouped: Vec<(u32, u32)> = vec![];
+    let mut n = 0;
+    let mut a = v[0];
+
+    for i in 0..v.len() {
+        if v[i] != a {
+            grouped.push((a, n));
+            a = v[i];
+            n = 0;
+        }
+        n+=1;
+    }
+    grouped.push((a, n));
+    grouped
 }
