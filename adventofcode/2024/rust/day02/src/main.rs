@@ -26,10 +26,7 @@ fn main() {
         } else {
             // remove one item and try again
             for i in 0..row.len() {
-                let mut copy: Vec<i32> = Vec::new();
-                for n in row {
-                    copy.push(*n);
-                }
+                let mut copy = row.clone();
                 copy.remove(i);
                 if test_row(&copy) {
                     count += 1;
