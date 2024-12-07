@@ -47,7 +47,7 @@ fn calibration_matches(total: i64, parts: &Vec<i64>, part_index: usize, acc: i64
 }
 
 fn append_base10(n1: i64, n2: i64) -> i64 {
-    n1 * 10_i64.pow(n2.ilog10()+1) + n2
+    n1 * 10_i64.pow(n2.ilog10() + 1) + n2
 }
 
 fn main() {
@@ -74,7 +74,7 @@ fn main() {
     }
     println!("Part 1: {}", sum);
 
-    let mut sum:i64 = 0;
+    let mut sum: i64 = 0;
     for (total, parts) in lines {
         if calibration_matches(total, &parts, 1, parts[0]) {
             sum += total
@@ -82,7 +82,6 @@ fn main() {
     }
     println!("Part 2: {}", sum);
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -96,8 +95,7 @@ mod tests {
 
     #[test]
     fn test_calibration_matches() {
-        let v:Vec<i64> = vec![15i64, 6i64];
+        let v: Vec<i64> = vec![15i64, 6i64];
         assert_eq!(calibration_matches(156, &v, 1, 15), true);
     }
 }
-
