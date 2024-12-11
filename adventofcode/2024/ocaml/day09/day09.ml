@@ -1,6 +1,8 @@
 open Core
 
-let input_file = "../input/day09/small-input.txt"
+let input_file = "../input/day09/input.txt"
+
+
 
 
 module Part_1 = struct
@@ -49,12 +51,30 @@ let rec check_sum (i, n, index) =
   else
     i*index + check_sum(i, n-1, index+1)
   
-  let run () =
-    input () |>  make_intermediate |> pack |> List.sum (module Int) ~f:check_sum
+let run () =
+  input () |>  make_intermediate |> pack |> List.sum (module Int) ~f:check_sum
 end
 
 
 module Part_2 = struct
+
+  (*let display l =
+    let rec fill_zeros start l =
+      match l with
+      | (_, _, index)::_ ->
+        Printf.printf "%s" (String.make (index - start) '.');
+        fill_num l
+      | [] -> ()
+    and fill_num l =
+      match l with
+      | (i, n, index)::rst ->
+        Printf.printf "%s" (String.make n (Char.of_int_exn (48 + i)));
+        fill_zeros (index + n) rst
+      | [] -> () in
+    fill_zeros 0 l;
+    print_endline ""*)
+    
+  
   let input () =
     In_channel.read_all input_file
     |> String.to_list |> List.map ~f:(fun c -> Char.to_int c - 48)
@@ -81,7 +101,7 @@ module Part_2 = struct
         (match gap_o with
         | Some (index, gap) ->
           let rem = gap - s in
-          let rem_index = index+gap in
+          let rem_index = index+s in
           let gap_map = Int.Map.remove gap_map index in
           let gap_map = if rem = 0 then gap_map else (Int.Map.add_exn gap_map ~key:rem_index ~data:rem) in
           let consumed_map = Int.Map.add_exn consumed_gaps ~key:index ~data:(i, s, index) in
@@ -104,27 +124,23 @@ module Part_2 = struct
     
 
   let rec check_sum (i, n, index) =
-  if n = 0 then
-    0
-  else
-    i*index + check_sum(i, n-1, index+1)
+    if n = 0 then
+      0
+    else
+      i*index + check_sum(i, n-1, index+1)
     
   let run () =
-    input () |> make_intermediate |> pack |> List.sort ~compare:(fun (_, _, i1) (_, _, i2) -> Int.compare i1 i2)  |> List.sum (module Int) ~f:check_sum
+    let l = input () |> make_intermediate |> pack |> List.sort ~compare:(fun (_, _, i1) (_, _, i2) -> Int.compare i1 i2) in
+    l |> List.sum (module Int) ~f:check_sum
 end
               
 let part1 () =
-  Printf.printf "Part 1\n";
-  Printf.printf "Res = %d\n" (Part_1.run ())
+  Printf.printf "\nPart 1: %d\n" (Part_1.run ())
 
 let part2 () =
-  Printf.printf "Part 2\n";
-  Printf.printf "Res = %d\n" (Part_2.run ())  
+  Printf.printf "Part 2: %d\n" (Part_2.run ())  
        
 let _ =
   part1 ();
-  part2 ()  
-
-
-
+  part2 ()
     
