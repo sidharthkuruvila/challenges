@@ -1,0 +1,5 @@
+(executable
+ (name dayNN)
+ (libraries core core_unix core_unix.sys_unix)
+ (preprocess
+  (pps ppx_compare ppx_sexp_conv)))

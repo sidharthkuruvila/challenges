@@ -81,13 +81,13 @@ module Part_2 = struct
     let sz =  (101, 103) in
     let (w, h) = sz in
     let next ((px, py), (vx, vy)) =
-      (((w + px + vx) mod w, (h + py+ vy) mod w), (vx, vy)) in
+      (((w + px + vx) mod w, (h + py+ vy) mod h), (vx, vy)) in
     let rec loop n robots =
       let robots = List.map robots ~f:next in
       if n >  101*103 then
         ()
       else begin
-                if n mod 101 = 12 then begin
+        if n mod 101 = 12 then begin
         print_endline "==================================================================";
         print_endline (Int.to_string n);
         print_endline "==================================================================";
@@ -104,7 +104,7 @@ module Part_2 = struct
     let sz =  (101, 103) in
     let (w, h) = sz in
     let next ((px, py), (vx, vy)) =
-      (((w + px + vx) mod w, (h + py+ vy) mod w), (vx, vy)) in
+      (((w + px + vx) mod w, (h + py+ vy) mod h), (vx, vy)) in
     let rec loop n robots =
       let robots = List.map robots ~f:next in
       
